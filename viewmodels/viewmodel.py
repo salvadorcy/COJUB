@@ -1,146 +1,163 @@
+import pyodbc
 from PyQt6.QtCore import QObject, pyqtSignal
-from models.model import DatabaseModel, Socio, Dades
-import utils.sepa_lib
-from PyQt6.QtWidgets import QMessageBox
+from datetime import datetime
+from collections import namedtuple
+from utils.sepa_lib import generar_xml_sepa
 
+# Definir la estructura de los datos del socio y de configuración
+Socio = namedtuple('Socio', [
+    'FAMID', 'FAMNom', 'FAMAdressa', 'FAMPoblacio', 'FAMCodPos', 'FAMTelefon',
+    'FAMMobil', 'FAMEmail', 'FAMDataAlta', 'FAMCCC', 'FAMIBAN', 'FAMBIC',
+    'FAMNSocis', 'bBaixa', 'FAMObservacions', 'FAMbSeccio', 'FAMNIF',
+    'FAMDataNaixement', 'FAMQuota', 'FAMIDSec', 'FAMDataBaixa', 'FAMTipus',
+    'FAMSexe', 'FAMSociReferencia', 'FAMNewId', 'FAMNewIdRef',
+    'FAMbPagamentDomiciliat', 'FAMbRebutCobrat', 'FAMPagamentFinestreta'
+])
+
+Dades = namedtuple('Dades', [
+    'TotalDefuncions', 'AcumulatDefuncions', 'PreuDerrama', 'ComissioBancaria',
+    'IdFactura', 'Presentador', 'CIFPresentador', 'Ordenant', 'CIFOrdenant',
+    'IBANPresentador', 'BICPresentador', 'PWD', 'QuotaSocis',
+    'SufixeRebuts', 'TexteRebutFinestreta'
+])
 
 class ViewModel(QObject):
     """
-    ViewModel que conecta el Modelo (datos) con la Vista (UI).
-    Contiene la lógica de la aplicación y notifica a la vista sobre cambios.
+    ViewModel actúa como intermediario entre el Modelo (Model) y la Vista (View).
+    Contiene la lógica de presentación y el estado de la aplicación.
     """
-    
     socis_changed = pyqtSignal()
     dades_changed = pyqtSignal()
-    
+
     def __init__(self, model):
         super().__init__()
         self.model = model
-        self.all_socis = [] # Almacena todos los socios
-        self.filtered_socis = [] # Almacena los socios filtrados
+        self.all_socis = []
+        self.filtered_socis = []
         self.dades = None
         self.selected_socio = None
-        
+        self.search_text = ""
+        self.filter_finestreta_enabled = False
+        self.filter_baixa_enabled = False
+
     def load_data(self):
-        """Carga todos los datos del modelo."""
+        """Carga todos los datos de socios y de configuración del modelo."""
         self.all_socis = self.model.get_all_socis()
-        self.filtered_socis = self.all_socis # Inicialmente, todos los socios están filtrados
-        self.socis_changed.emit()
-        self.dades = self.model.get_all_dades()
+        self.dades = self.model.get_dades()
+        self.update_filtered_socis()
         self.dades_changed.emit()
 
-    def get_socis(self):
-        """Devuelve la lista de socios a mostrar en la tabla."""
-        return self.filtered_socis
-
-    def filter_socis(self, search_text):
-        """
-        Filtra la lista de socios basada en el texto de búsqueda.
-        La búsqueda es insensible a mayúsculas y minúsculas y se realiza sobre
-        los campos 'FAMID' y 'FAMNom'.
-        """
-        if not search_text:
-            self.filtered_socis = self.all_socis
-        else:
-            self.filtered_socis = [
-                s for s in self.all_socis
-                if (s.FAMID and search_text.lower() in s.FAMID.lower()) or
-                   (s.FAMNom and search_text.lower() in s.FAMNom.lower())
+    def update_filtered_socis(self):
+        """Aplica los filtros de búsqueda y otros a la lista de socios."""
+        socis = self.all_socis
+        # Aplicar filtro de baja (por defecto no se muestran los socios dados de baja)
+        if not self.filter_baixa_enabled:
+            socis = [s for s in socis if not s.bBaixa]
+        # Aplicar filtro de búsqueda de texto
+        if self.search_text:
+            socis = [
+                s for s in socis
+                if self.search_text.lower() in s.FAMID.lower() or self.search_text.lower() in s.FAMNom.lower()
             ]
+        # Aplicar filtro de pago por ventanilla
+        if self.filter_finestreta_enabled:
+            socis = [s for s in socis if s.FAMPagamentFinestreta]
+            
+        self.filtered_socis = socis
         self.socis_changed.emit()
 
-    def set_selected_socio(self, index):
-        """Establece el socio seleccionado de la tabla."""
-        if 0 <= index < len(self.filtered_socis):
-            self.selected_socio = self.filtered_socis[index]
+    def filter_socis(self, text):
+        """Actualiza el texto de búsqueda y filtra la lista."""
+        self.search_text = text
+        self.update_filtered_socis()
+    
+    def toggle_finestreta_filter(self, state):
+        """Activa o desactiva el filtro de pago por ventanilla."""
+        self.filter_finestreta_enabled = bool(state)
+        self.update_filtered_socis()
+        
+    def toggle_baixa_filter(self, state):
+        """Activa o desactiva el filtro para mostrar a los socios dados de baja."""
+        self.filter_baixa_enabled = bool(state)
+        self.update_filtered_socis()
+
+    def get_socis(self):
+        """Devuelve la lista de socios filtrada para mostrar en la vista."""
+        return self.filtered_socis
+
+    def get_socio_full_name(self, socio_id):
+        """Busca y devuelve el nombre completo de un socio por su ID."""
+        if not socio_id:
+            return ""
+        try:
+            socio = next(s for s in self.all_socis if s.FAMID == socio_id.strip())
+            return socio.FAMNom
+        except StopIteration:
+            return ""
+
+    def set_selected_socio(self, row_index):
+        """Establece el socio seleccionado a partir del índice de la fila."""
+        if row_index is not None and 0 <= row_index < len(self.filtered_socis):
+            self.selected_socio = self.filtered_socis[row_index]
         else:
             self.selected_socio = None
 
     def get_selected_socio_data(self):
-        """Devuelve los datos del socio seleccionado para el formulario."""
-        if not self.selected_socio:
-            return None
-        
-        # Devuelve los datos como una tupla para facilitar el llenado del formulario
-        return (self.selected_socio.FAMID, self.selected_socio.FAMNom, self.selected_socio.FAMAdressa,
-                self.selected_socio.FAMPoblacio, self.selected_socio.FAMCodPos, self.selected_socio.FAMTelefon,
-                self.selected_socio.FAMMobil, self.selected_socio.FAMEmail, self.selected_socio.FAMDataAlta,
-                self.selected_socio.FAMCCC, self.selected_socio.FAMIBAN, self.selected_socio.FAMBIC,
-                self.selected_socio.FAMNSocis, self.selected_socio.bBaixa, self.selected_socio.FAMObservacions,
-                self.selected_socio.FAMbSeccio, self.selected_socio.FAMNIF, self.selected_socio.FAMDataNaixement,
-                self.selected_socio.FAMQuota, self.selected_socio.FAMIDSec, self.selected_socio.FAMDataBaixa,
-                self.selected_socio.FAMTipus, self.selected_socio.FAMSexe, self.selected_socio.FAMSociReferencia,
-                self.selected_socio.FAMNewId, self.selected_socio.FAMNewIdRef,
-                self.selected_socio.FAMbPagamentDomiciliat, self.selected_socio.FAMbRebutCobrat,
-                self.selected_socio.FAMPagamentFinestreta)
+        """Devuelve los datos del socio seleccionado en formato de tupla."""
+        if self.selected_socio:
+            return self.selected_socio
+        return None
 
-    def get_socio_full_name(self, famid):
-        """Obtiene el nombre completo de un socio a partir de su ID."""
-        for socio in self.all_socis:
-            if socio.FAMID == famid:
-                return socio.FAMNom
-        return "N/A"
-
-    def save_socio(self, new_socio_data):
-        """Guarda un nuevo socio o actualiza uno existente."""
-        fam_id = new_socio_data[0]
-        
-        if self.model.get_socio_by_id(fam_id):
-            # Actualizar socio
-            success = self.model.update_socio(fam_id, new_socio_data[1:])
+    def save_socio(self, data):
+        """Guarda o actualiza un socio en la base de datos."""
+        # Se asume que el primer elemento de la tupla es el FAMID
+        fam_id = data[0]
+        # Si el FAMID existe, es una actualización
+        if self.model.socio_exists(fam_id):
+            return self.model.update_socio(data)
+        # Si no, es una nueva inserción
         else:
-            # Crear nuevo socio
-            success = self.model.create_socio(new_socio_data)
-        
-        if success:
-            self.load_data()
-            return True
-        return False
-
+            return self.model.add_socio(data)
+            
     def delete_selected_socio(self):
-        """Elimina el socio actualmente seleccionado."""
+        """Elimina el socio seleccionado de la base de datos."""
         if self.selected_socio:
             success = self.model.delete_socio(self.selected_socio.FAMID)
             if success:
-                self.selected_socio = None
-                self.load_data()
-                return True
+                self.load_data()  # Recargar datos después de eliminar
+            return success
         return False
-
+        
     def get_dades_data(self):
         """Devuelve los datos de configuración."""
-        if not self.dades:
-            return None
-        return (self.dades.TotalDefuncions, self.dades.AcumulatDefuncions, self.dades.PreuDerrama,
-                self.dades.ComissioBancaria, self.dades.IdFactura, self.dades.Presentador,
-                self.dades.CIFPresentador, self.dades.Ordenant, self.dades.CIFOrdenant,
-                self.dades.IBANPresentador, self.dades.BICPresentador, self.dades.PWD,
-                self.dades.QuotaSocis, self.dades.SufixeRebuts, self.dades.TexteRebutFinestreta)
-
-    def save_dades(self, dades_data):
-        """Guarda los datos de configuración."""
-        success = self.model.update_dades(dades_data)
-        if success:
-            self.load_data()
-            return True
-        return False
-
-    def generar_remesa_sepa(self, filename):
-        """Genera el archivo de remesa SEPA."""
-        if not self.dades or not self.all_socis:
-            QMessageBox.warning(None, "Error", "No se han cargado los datos para generar la remesa.")
-            return False
-            
-        socios_a_incluir = [s for s in self.all_socis if s.FAMbPagamentDomiciliat and not s.bBaixa]
+        if self.dades:
+            return self.dades
+        return None
         
-        if not socios_a_incluir:
-            QMessageBox.warning(None, "Atención", "No hay socios domiciliados activos para generar la remesa.")
-            return False
-
+    def save_dades(self, data):
+        """Guarda los datos de configuración en la base de datos."""
+        success = self.model.update_dades(data)
+        if success:
+            self.load_data() # Recargar datos después de actualizar
+        return success
+    
+    def generar_remesa_sepa(self, filename):
+        """
+        Genera el archivo de remesa SEPA a partir de los socios a domiciliar
+        y los datos de configuración.
+        """
+        if not self.dades:
+            print("Error: No se han cargado los datos de configuración (G_Dades).")
+            return
+            
+        socios_a_domiciliar = [s for s in self.all_socis if s.FAMbPagamentDomiciliat]
+        
+        if not socios_a_domiciliar:
+            print("No hay socios para generar la remesa SEPA.")
+            return
+            
         try:
-            utils.sepa_lib.generar_xml_sepa(self.dades, socios_a_incluir, filename)
-            QMessageBox.information(None, "Éxito", "Remesa SEPA generada correctamente en:\n{}".format(filename))
-            return True
+            generar_sepa_xml(filename, socios_a_domiciliar, self.dades)
+            print(f"Remesa SEPA generada correctamente en '{filename}'.")
         except Exception as e:
-            QMessageBox.critical(None, "Error", "Error al generar la remesa SEPA: {}".format(str(e)))
-            return False
+            print(f"Error al generar la remesa SEPA: {e}")

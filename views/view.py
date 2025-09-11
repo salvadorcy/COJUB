@@ -1,5 +1,6 @@
 from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget, QTableWidgetItem, QLabel, QLineEdit, QFormLayout, QDialog, QMessageBox, QCheckBox, QGroupBox
 from PyQt6.QtCore import QSize, Qt
+from PyQt6.QtGui import QColor, QFont
 from datetime import datetime
 
 class SocioDialog(QDialog):
@@ -210,7 +211,7 @@ class MainWindow(QMainWindow):
     def __init__(self, view_model):
         super().__init__()
         self.setWindowTitle("Gestió de Socis i Remeses SEPA")
-        self.setGeometry(100, 100, 1200, 800)
+        self.setGeometry(100, 100, 1280, 800)
         self.view_model = view_model
         
         # Conectar señales del ViewModel a métodos de la Vista
@@ -267,17 +268,31 @@ class MainWindow(QMainWindow):
         
         self.finestreta_checkbox = QCheckBox("Pagament per Finestreta")
         self.finestreta_checkbox.stateChanged.connect(self.view_model.toggle_finestreta_filter)
+        
+        self.baixa_checkbox = QCheckBox("Mostrar Baixes")
+        self.baixa_checkbox.stateChanged.connect(self.view_model.toggle_baixa_filter)
 
         search_layout.addWidget(search_label)
         search_layout.addWidget(self.search_input)
         search_layout.addWidget(self.finestreta_checkbox)
+        search_layout.addWidget(self.baixa_checkbox)
         
         main_layout.addLayout(search_layout)
 
         # Tabla de socios
         self.socis_table = QTableWidget()
-        self.socis_table.setColumnCount(5) # Solo mostramos algunas columnas relevantes
-        self.socis_table.setHorizontalHeaderLabels(["ID", "Nom", "IBAN", "Quota", "Soci Parella"])
+        self.socis_table.setColumnCount(9) # Solo mostramos algunas columnas relevantes
+        self.socis_table.setColumnWidth(0,50)
+        self.socis_table.setColumnWidth(1,300)
+        self.socis_table.setColumnWidth(2,300)
+        self.socis_table.setColumnWidth(3,50)
+        self.socis_table.setColumnWidth(4,150)
+        self.socis_table.setColumnWidth(5,80)
+        self.socis_table.setColumnWidth(6,80)
+        self.socis_table.setColumnWidth(7,180)
+        self.socis_table.setColumnWidth(8,300)
+        
+        self.socis_table.setHorizontalHeaderLabels(["ID", "Nom", "Adreça", "Cod.Pos.", "Poblacio","Telèfon","Mòbil","Email","Soci Referencia/Parella"])
         self.socis_table.horizontalHeader().setStretchLastSection(True)
         self.socis_table.setAlternatingRowColors(True)
         self.socis_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
@@ -291,14 +306,25 @@ class MainWindow(QMainWindow):
         socis_to_show = self.view_model.get_socis()
         self.socis_table.setRowCount(len(socis_to_show))
         for row, socio in enumerate(socis_to_show):
+            # Colorear la fila si el socio está dado de baja
+            if socio.bBaixa:
+                for col in range(self.socis_table.columnCount()):
+                    item = QTableWidgetItem()
+                    item.setBackground(QColor(255, 0, 0)) # Rojo
+                    item.setForeground(QColor(255, 255, 255)) # Blanco
+                    self.socis_table.setItem(row, col, item)
             self.socis_table.setItem(row, 0, QTableWidgetItem(socio.FAMID))
             self.socis_table.setItem(row, 1, QTableWidgetItem(socio.FAMNom))
-            self.socis_table.setItem(row, 2, QTableWidgetItem(socio.FAMIBAN))
-            self.socis_table.setItem(row, 3, QTableWidgetItem(str(socio.FAMQuota)))
+            self.socis_table.setItem(row, 2, QTableWidgetItem(socio.FAMAdressa))
+            self.socis_table.setItem(row, 3, QTableWidgetItem(socio.FAMCodPos))
+            self.socis_table.setItem(row, 4, QTableWidgetItem(socio.FAMPoblacio))
+            self.socis_table.setItem(row, 5, QTableWidgetItem(socio.FAMTelefon))
+            self.socis_table.setItem(row, 6, QTableWidgetItem(socio.FAMMobil))
+            self.socis_table.setItem(row, 7, QTableWidgetItem(socio.FAMEmail))            
             
             # Manejar el campo de socio pareja
             socio_pareja_nom = self.view_model.get_socio_full_name(socio.FAMSociReferencia)
-            self.socis_table.setItem(row, 4, QTableWidgetItem(socio_pareja_nom))
+            self.socis_table.setItem(row, 8, QTableWidgetItem(socio_pareja_nom))
 
     def on_socio_selected(self):
         """Maneja la selección de un socio en la tabla."""

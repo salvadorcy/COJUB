@@ -12,6 +12,6 @@ if __name__ == "__main__":
     view_model = ViewModel(model)
     view = MainWindow(view_model)
     
-    view.show()
+    view.showMaximized()
     
     sys.exit(app.exec())

@@ -1,196 +1,136 @@
-import pyodbc
-from datetime import datetime
-from dotenv import load_dotenv
 import os
+from dotenv import load_dotenv
+import pyodbc
+from collections import namedtuple
 
-class Socio:
-    """Clase para representar un socio."""
-    def __init__(self, FAMID, FAMNom, FAMAdressa, FAMPoblacio, FAMCodPos, FAMTelefon, FAMMobil, FAMEmail,
-                 FAMDataAlta, FAMCCC, FAMIBAN, FAMBIC, FAMNSocis, bBaixa, FAMObservacions,
-                 FAMbSeccio, FAMNIF, FAMDataNaixement, FAMQuota, FAMIDSec, FAMDataBaixa,
-                 FAMTipus, FAMSexe, FAMSociReferencia, FAMNewId, FAMNewIdRef, FAMbPagamentDomiciliat,
-                 FAMbRebutCobrat, FAMPagamentFinestreta):
-        self.FAMID = FAMID
-        self.FAMNom = FAMNom
-        self.FAMAdressa = FAMAdressa
-        self.FAMPoblacio = FAMPoblacio
-        self.FAMCodPos = FAMCodPos
-        self.FAMTelefon = FAMTelefon
-        self.FAMMobil = FAMMobil
-        self.FAMEmail = FAMEmail
-        self.FAMDataAlta = FAMDataAlta
-        self.FAMCCC = FAMCCC
-        self.FAMIBAN = FAMIBAN
-        self.FAMBIC = FAMBIC
-        self.FAMNSocis = FAMNSocis
-        self.bBaixa = bBaixa
-        self.FAMObservacions = FAMObservacions
-        self.FAMbSeccio = FAMbSeccio
-        self.FAMNIF = FAMNIF
-        self.FAMDataNaixement = FAMDataNaixement
-        self.FAMQuota = FAMQuota
-        self.FAMIDSec = FAMIDSec
-        self.FAMDataBaixa = FAMDataBaixa
-        self.FAMTipus = FAMTipus
-        self.FAMSexe = FAMSexe
-        self.FAMSociReferencia = FAMSociReferencia
-        self.FAMNewId = FAMNewId
-        self.FAMNewIdRef = FAMNewIdRef
-        self.FAMbPagamentDomiciliat = FAMbPagamentDomiciliat
-        self.FAMbRebutCobrat = FAMbRebutCobrat
-        self.FAMPagamentFinestreta = FAMPagamentFinestreta
+# Definir la estructura de los datos del socio y de configuración
+Socio = namedtuple('Socio', [
+    'FAMID', 'FAMNom', 'FAMAdressa', 'FAMPoblacio', 'FAMCodPos', 'FAMTelefon',
+    'FAMMobil', 'FAMEmail', 'FAMDataAlta', 'FAMCCC', 'FAMIBAN', 'FAMBIC',
+    'FAMNSocis', 'bBaixa', 'FAMObservacions', 'FAMbSeccio', 'FAMNIF',
+    'FAMDataNaixement', 'FAMQuota', 'FAMIDSec', 'FAMDataBaixa', 'FAMTipus',
+    'FAMSexe', 'FAMSociReferencia', 'FAMNewId', 'FAMNewIdRef',
+    'FAMbPagamentDomiciliat', 'FAMbRebutCobrat', 'FAMPagamentFinestreta'
+])
 
-class Dades:
-    """Clase para representar los datos de configuración."""
-    def __init__(self, TotalDefuncions, AcumulatDefuncions, PreuDerrama, ComissioBancaria, IdFactura,
-                 Presentador, CIFPresentador, Ordenant, CIFOrdenant, IBANPresentador, BICPresentador,
-                 RegID, PWD, QuotaSocis, SufixeRebuts, TexteRebutFinestreta):
-        self.TotalDefuncions = TotalDefuncions
-        self.AcumulatDefuncions = AcumulatDefuncions
-        self.PreuDerrama = PreuDerrama
-        self.ComissioBancaria = ComissioBancaria
-        self.IdFactura = IdFactura
-        self.Presentador = Presentador
-        self.CIFPresentador = CIFPresentador
-        self.Ordenant = Ordenant
-        self.CIFOrdenant = CIFOrdenant
-        self.IBANPresentador = IBANPresentador
-        self.BICPresentador = BICPresentador
-        self.RegID = RegID
-        self.PWD = PWD
-        self.QuotaSocis = QuotaSocis
-        self.SufixeRebuts = SufixeRebuts
-        self.TexteRebutFinestreta = TexteRebutFinestreta
+Dades = namedtuple('Dades', [
+    'TotalDefuncions', 'AcumulatDefuncions', 'PreuDerrama', 'ComissioBancaria',
+    'IdFactura', 'Presentador', 'CIFPresentador', 'Ordenant', 'CIFOrdenant',
+    'IBANPresentador', 'BICPresentador', 'PWD', 'QuotaSocis',
+    'SufixeRebuts', 'TexteRebutFinestreta'
+])
+
 
 class DatabaseModel:
-    """Clase que maneja la conexión y operaciones de la base de datos."""
+    """
+    Clase que gestiona la conexión a la base de datos y las operaciones CRUD.
+    """
     def __init__(self):
-        self.conn = None
-        self.cursor = None
-        self.connect()
+        load_dotenv()
+        # NOTA: Debes rellenar esta cadena de conexión con tus propios datos
+        self.conn_str = (
+            f"DRIVER={{ODBC Driver 17 for SQL Server}};"
+            f"SERVER={os.getenv("SQL_SERVER")};"
+            f"DATABASE={os.getenv("SQL_DATABASE")};"
+            f"UID={os.getenv("SQL_USER")};"
+            f"PWD={os.getenv("SQL_PASSWORD")};"
+        )
+        self.conn = pyodbc.connect(self.conn_str)
 
     def connect(self):
-        load_dotenv()
-        """Establece la conexión a la base de datos SQL Server."""
-        conn_str = (
-           f"DRIVER={{ODBC Driver 17 for SQL Server}};"
-           f"SERVER={os.getenv("SQL_SERVER")};"
-           f"DATABASE={os.getenv("SQL_DATABASE")};"
-           f"UID={os.getenv("SQL_USER")};"
-           f"PWD={os.getenv("SQL_PASSWORD")};"
-        )
+        """Establece la conexión a la base de datos."""
         try:
-            self.conn = pyodbc.connect(conn_str)
-            self.cursor = self.conn.cursor()
-            print("Conexión a la base de datos exitosa.")
-        except Exception as e:
-            print("Error al conectar a la base de datos:", e)
+            self.conn = pyodbc.connect(self.conn_str)
+            print("Conexión a la base de datos establecida.")
+        except pyodbc.Error as ex:
+            sqlstate = ex.args[0]
+            print(f"Error de conexión: {sqlstate}")
+            raise
 
     def close(self):
         """Cierra la conexión a la base de datos."""
         if self.conn:
             self.conn.close()
+            print("Conexión a la base de datos cerrada.")
 
     def get_all_socis(self):
-        """Obtiene una lista de todos los socios."""
-        if not self.cursor:
-            return []
-        self.cursor.execute("SELECT * FROM scazorla_sa.G_Socis")
-        rows = self.cursor.fetchall()
-        socis = []
-        for row in rows:
-            socis.append(Socio(*row))
-        return socis
+        """Recupera todos los socios de la base de datos."""
+        query = "SELECT * FROM scazorla_sa.G_Socis"
+        with self.conn.cursor() as cursor:
+            cursor.execute(query)
+            return [Socio(*row) for row in cursor.fetchall()]
 
-    def get_socio_by_id(self, famid):
-        """Obtiene un socio por su FAMID."""
-        if not self.cursor:
+    def get_dades(self):
+        """Recupera los datos de configuración de la tabla G_Dades."""
+        query = "SELECT * FROM scazorla_sa.G_Dades"
+        with self.conn.cursor() as cursor:
+            cursor.execute(query)
+            row = cursor.fetchone()
+            if row:
+                # Se excluye el campo de identidad [RegID]
+                return Dades(*row[:-1])
             return None
-        self.cursor.execute("SELECT * FROM scazorla_sa.G_Socis WHERE FAMID = ?", famid)
-        row = self.cursor.fetchone()
-        return Socio(*row) if row else None
 
-    def create_socio(self, socio_data):
-        """Crea un nuevo socio en la base de datos."""
-        if not self.cursor:
-            return False
+    def socio_exists(self, fam_id):
+        """Verifica si un socio con un FAMID específico ya existe."""
+        query = "SELECT FAMID FROM scazorla_sa.G_Socis WHERE FAMID = ?"
+        with self.conn.cursor() as cursor:
+            cursor.execute(query, fam_id)
+            return cursor.fetchone() is not None
+
+    def add_socio(self, data):
+        """Añade un nuevo socio a la base de datos."""
+        placeholders = ', '.join(['?'] * len(data))
+        columns = ', '.join(Socio._fields)
+        query = f"INSERT INTO scazorla_sa.G_Socis ({columns}) VALUES ({placeholders})"
         try:
-            query = """
-            INSERT INTO scazorla_sa.G_Socis (FAMID, FAMNom, FAMAdressa, FAMPoblacio, FAMCodPos, FAMTelefon, FAMMobil,
-            FAMEmail, FAMDataAlta, FAMCCC, FAMIBAN, FAMBIC, FAMNSocis, bBaixa, FAMObservacions,
-            FAMbSeccio, FAMNIF, FAMDataNaixement, FAMQuota, FAMIDSec, FAMDataBaixa, FAMTipus,
-            FAMSexe, FAMSociReferencia, FAMNewId, FAMNewIdRef, FAMbPagamentDomiciliat,
-            FAMbRebutCobrat, FAMPagamentFinestreta)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """
-            self.cursor.execute(query, *socio_data)
-            self.conn.commit()
+            with self.conn.cursor() as cursor:
+                cursor.execute(query, data)
+                self.conn.commit()
             return True
-        except Exception as e:
-            print("Error al crear socio:", e)
-            self.conn.rollback()
+        except pyodbc.Error as ex:
+            print(f"Error al añadir socio: {ex}")
             return False
 
-    def update_socio(self, famid, socio_data):
+    def update_socio(self, data):
         """Actualiza un socio existente en la base de datos."""
-        if not self.cursor:
-            return False
+        fam_id = data[0]
+        update_pairs = ', '.join([f"{col} = ?" for col in Socio._fields])
+        query = f"UPDATE scazorla_sa.G_Socis SET {update_pairs} WHERE FAMID = ?"
         try:
-            query = """
-            UPDATE scazorla_sa.G_Socis SET
-            FAMNom=?, FAMAdressa=?, FAMPoblacio=?, FAMCodPos=?, FAMTelefon=?, FAMMobil=?, FAMEmail=?,
-            FAMDataAlta=?, FAMCCC=?, FAMIBAN=?, FAMBIC=?, FAMNSocis=?, bBaixa=?, FAMObservacions=?,
-            FAMbSeccio=?, FAMNIF=?, FAMDataNaixement=?, FAMQuota=?, FAMIDSec=?, FAMDataBaixa=?,
-            FAMTipus=?, FAMSexe=?, FAMSociReferencia=?, FAMNewId=?, FAMNewIdRef=?, FAMbPagamentDomiciliat=?,
-            FAMbRebutCobrat=?, FAMPagamentFinestreta=?
-            WHERE FAMID=?
-            """
-            self.cursor.execute(query, *socio_data, famid)
-            self.conn.commit()
+            with self.conn.cursor() as cursor:
+                # La tupla de datos debe ser reordenada para que el FAMID vaya al final
+                ordered_data = data + (fam_id,)
+                cursor.execute(query, ordered_data)
+                self.conn.commit()
             return True
-        except Exception as e:
-            print("Error al actualizar socio:", e)
-            self.conn.rollback()
+        except pyodbc.Error as ex:
+            print(f"Error al actualizar socio: {ex}")
             return False
 
-    def delete_socio(self, famid):
+    def delete_socio(self, fam_id):
         """Elimina un socio de la base de datos."""
-        if not self.cursor:
-            return False
+        query = "DELETE FROM scazorla_sa.G_Socis WHERE FAMID = ?"
         try:
-            self.cursor.execute("DELETE FROM scazorla_sa.G_Socis WHERE FAMID=?", famid)
-            self.conn.commit()
+            with self.conn.cursor() as cursor:
+                cursor.execute(query, fam_id)
+                self.conn.commit()
             return True
-        except Exception as e:
-            print("Error al eliminar socio:", e)
-            self.conn.rollback()
+        except pyodbc.Error as ex:
+            print(f"Error al eliminar socio: {ex}")
             return False
 
-    def get_all_dades(self):
-        """Obtiene los datos de configuración."""
-        if not self.cursor:
-            return None
-        self.cursor.execute("SELECT * FROM scazorla_sa.G_Dades")
-        row = self.cursor.fetchone()
-        return Dades(*row) if row else None
-    
-    def update_dades(self, dades_data):
-        """Actualiza los datos de configuración."""
-        if not self.cursor:
-            return False
+    def update_dades(self, data):
+        """Actualiza los datos de configuración en la base de datos."""
+        # Se asume que solo hay una fila, por lo que se actualiza por el ID 1
+        # Se excluye el campo de identidad [RegID]
+        update_pairs = ', '.join([f"{col} = ?" for col in Dades._fields])
+        query = f"UPDATE scazorla_sa.G_Dades SET {update_pairs} WHERE RegID = 1"
         try:
-            query = """
-            UPDATE scazorla_sa.G_Dades SET
-            TotalDefuncions=?, AcumulatDefuncions=?, PreuDerrama=?, ComissioBancaria=?,
-            IdFactura=?, Presentador=?, CIFPresentador=?, Ordenant=?, CIFOrdenant=?,
-            IBANPresentador=?, BICPresentador=?, PWD=?, QuotaSocis=?, SufixeRebuts=?,
-            TexteRebutFinestreta=?
-            WHERE RegID=1
-            """
-            self.cursor.execute(query, *dades_data)
-            self.conn.commit()
+            with self.conn.cursor() as cursor:
+                cursor.execute(query, data)
+                self.conn.commit()
             return True
-        except Exception as e:
-            print("Error al actualizar datos:", e)
-            self.conn.rollback()
+        except pyodbc.Error as ex:
+            print(f"Error al actualizar datos de configuración: {ex}")
             return False

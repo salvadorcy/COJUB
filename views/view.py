@@ -1,7 +1,9 @@
-from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget, QTableWidgetItem, QLabel, QLineEdit, QFormLayout, QDialog, QMessageBox, QCheckBox, QGroupBox
+from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget, QTableWidgetItem, QLabel, QLineEdit, QFormLayout, QDialog, QMessageBox, QCheckBox, QGroupBox,QFileDialog
 from PyQt6.QtCore import QSize, Qt
 from PyQt6.QtGui import QColor, QFont
 from datetime import datetime
+from .style_config import STYLE_CONFIG
+
 
 class SocioDialog(QDialog):
     """Diálogo para agregar o editar un socio."""
@@ -103,31 +105,44 @@ class SocioDialog(QDialog):
                         widget.setChecked(bool(value))
 
     def get_data(self):
-        """Devuelve los datos del formulario como una tupla."""
+        """Devuelve los datos del formulario como una tupla, asegurando el orden correcto."""
         data = []
-        for attr in self.fields:
-            widget = self.fields[attr]
-            if isinstance(widget, QLineEdit):
-                value = widget.text()
-                if attr in ["FAMDataAlta", "FAMDataNaixement", "FAMDataBaixa"] and value:
-                    try:
-                        value = datetime.strptime(value, '%Y-%m-%d')
-                    except ValueError:
-                        value = None # O manejar el error
-                elif attr in ["FAMNSocis"]:
-                    try:
-                        value = int(value)
-                    except (ValueError, TypeError):
-                        value = 0
-                elif attr in ["FAMQuota"]:
-                    try:
-                        value = float(value)
-                    except (ValueError, TypeError):
-                        value = 0.0
+        ordered_keys = [
+            "FAMID", "FAMNom", "FAMAdressa", "FAMPoblacio", "FAMCodPos",
+            "FAMTelefon", "FAMMobil", "FAMEmail", "FAMDataAlta", "FAMCCC",
+            "FAMIBAN", "FAMBIC", "FAMNSocis", "bBaixa", "FAMObservacions",
+            "FAMbSeccio", "FAMNIF", "FAMDataNaixement", "FAMQuota", "FAMIDSec",
+            "FAMDataBaixa", "FAMTipus", "FAMSexe", "FAMSociReferencia",
+            "FAMNewId", "FAMNewIdRef", "FAMbPagamentDomiciliat",
+            "FAMbRebutCobrat", "FAMPagamentFinestreta"
+        ]
+        
+        for key in ordered_keys:
+            if key in self.fields:
+                widget = self.fields[key]
+                value = None
+                if isinstance(widget, QLineEdit):
+                    value = widget.text()
+                    if key in ["FAMDataAlta", "FAMDataNaixement", "FAMDataBaixa"] and value:
+                        try:
+                            value = datetime.strptime(value, '%Y-%m-%d')
+                        except ValueError:
+                            value = None
+                    elif key in ["FAMNSocis"]:
+                        try:
+                            value = int(value)
+                        except (ValueError, TypeError):
+                            value = 0
+                    elif key in ["FAMQuota"]:
+                        try:
+                            value = float(value)
+                        except (ValueError, TypeError):
+                            value = 0.0
+                elif isinstance(widget, QCheckBox):
+                    value = widget.isChecked()
                 data.append(value)
-            elif isinstance(widget, QCheckBox):
-                data.append(widget.isChecked())
         return tuple(data)
+
 
 class DadesDialog(QDialog):
     """Diálogo para editar los datos de configuración."""
@@ -240,6 +255,13 @@ class MainWindow(QMainWindow):
         self.delete_button.clicked.connect(self.delete_socio)
         self.config_button.clicked.connect(self.edit_dades)
         self.sepa_button.clicked.connect(self.generar_sepa)
+        
+        # Botones para los listados a imprimir
+        self.print_general_button = QPushButton("Imprimeix Llistat General")
+        self.print_banking_button = QPushButton("Imprimeix Dades Bancàries")
+        
+        self.print_general_button.clicked.connect(self.print_general_report)
+        self.print_banking_button.clicked.connect(self.print_banking_report)
 
         button_layout.addWidget(self.add_button)
         button_layout.addWidget(self.edit_button)
@@ -247,6 +269,8 @@ class MainWindow(QMainWindow):
         button_layout.addStretch(1)
         button_layout.addWidget(self.config_button)
         button_layout.addWidget(self.sepa_button)
+        button_layout.addWidget(self.print_general_button)
+        button_layout.addWidget(self.print_banking_button)
         
         main_layout.addLayout(button_layout)
         
@@ -279,6 +303,11 @@ class MainWindow(QMainWindow):
         
         main_layout.addLayout(search_layout)
 
+        # Etiqueta para el contador de registros
+        self.record_count_label = QLabel("Total de registres: 0")
+        self.record_count_label.setFont(QFont(STYLE_CONFIG["font_family"], STYLE_CONFIG["font_size_bold"], QFont.Weight.Bold))
+        main_layout.addWidget(self.record_count_label)
+        
         # Tabla de socios
         self.socis_table = QTableWidget()
         self.socis_table.setColumnCount(9) # Solo mostramos algunas columnas relevantes
@@ -300,31 +329,47 @@ class MainWindow(QMainWindow):
         self.socis_table.itemSelectionChanged.connect(self.on_socio_selected)
         self.socis_table.itemDoubleClicked.connect(self.on_socio_double_clicked)
         main_layout.addWidget(self.socis_table)
-        
+
     def update_socis_table(self):
         """Actualiza la tabla de socios con los datos del ViewModel."""
         socis_to_show = self.view_model.get_socis()
         self.socis_table.setRowCount(len(socis_to_show))
+        
+        # Esta línea actualiza el contador de registros
+        self.record_count_label.setText(f"Total de registres: {len(socis_to_show)}")
+
         for row, socio in enumerate(socis_to_show):
-            # Colorear la fila si el socio está dado de baja
-            if socio.bBaixa:
-                for col in range(self.socis_table.columnCount()):
-                    item = QTableWidgetItem()
-                    item.setBackground(QColor(255, 0, 0)) # Rojo
-                    item.setForeground(QColor(255, 255, 255)) # Blanco
-                    self.socis_table.setItem(row, col, item)
-            self.socis_table.setItem(row, 0, QTableWidgetItem(socio.FAMID))
-            self.socis_table.setItem(row, 1, QTableWidgetItem(socio.FAMNom))
-            self.socis_table.setItem(row, 2, QTableWidgetItem(socio.FAMAdressa))
-            self.socis_table.setItem(row, 3, QTableWidgetItem(socio.FAMCodPos))
-            self.socis_table.setItem(row, 4, QTableWidgetItem(socio.FAMPoblacio))
-            self.socis_table.setItem(row, 5, QTableWidgetItem(socio.FAMTelefon))
-            self.socis_table.setItem(row, 6, QTableWidgetItem(socio.FAMMobil))
-            self.socis_table.setItem(row, 7, QTableWidgetItem(socio.FAMEmail))            
-            
-            # Manejar el campo de socio pareja
+            # Obtener el nombre del socio pareja
             socio_pareja_nom = self.view_model.get_socio_full_name(socio.FAMSociReferencia)
-            self.socis_table.setItem(row, 8, QTableWidgetItem(socio_pareja_nom))
+
+            # Crear y establecer los QTableWidgetItem para cada columna
+            id_item = QTableWidgetItem(socio.FAMID)
+            nom_item = QTableWidgetItem(socio.FAMNom)
+            adressa_item = QTableWidgetItem(socio.FAMAdressa)
+            cod_pos_item = QTableWidgetItem(socio.FAMCodPos)
+            poblacio_item = QTableWidgetItem(socio.FAMPoblacio)
+            telefon_item = QTableWidgetItem(socio.FAMTelefon)
+            mobil_item = QTableWidgetItem(socio.FAMMobil)
+            email_item = QTableWidgetItem(socio.FAMEmail)
+            socio_parella_item = QTableWidgetItem(socio_pareja_nom)
+
+            # Si el socio está dado de baja, aplicar el estilo de color
+            if socio.bBaixa:
+                for item in [id_item, nom_item, adressa_item, cod_pos_item, poblacio_item,
+                             telefon_item, mobil_item, email_item, socio_parella_item]:
+                    item.setBackground(STYLE_CONFIG["color_baixa_bg"])
+                    item.setForeground(STYLE_CONFIG["color_baixa_text"])
+
+            # Establecer los ítems en la tabla
+            self.socis_table.setItem(row, 0, id_item)
+            self.socis_table.setItem(row, 1, nom_item)
+            self.socis_table.setItem(row, 2, adressa_item)
+            self.socis_table.setItem(row, 3, cod_pos_item)
+            self.socis_table.setItem(row, 4, poblacio_item)
+            self.socis_table.setItem(row, 5, telefon_item)
+            self.socis_table.setItem(row, 6, mobil_item)
+            self.socis_table.setItem(row, 7, email_item)
+            self.socis_table.setItem(row, 8, socio_parella_item)
 
     def on_socio_selected(self):
         """Maneja la selección de un socio en la tabla."""
@@ -406,3 +451,19 @@ class MainWindow(QMainWindow):
         # Se podría agregar un diálogo para seleccionar la ruta del archivo
         filename = "remesa_sepa.xml"
         self.view_model.generar_remesa_sepa(filename)
+    
+    def print_general_report(self):
+        """Genera e imprime el listado general de socios."""
+        filepath, _ = QFileDialog.getSaveFileName(self, "Guardar llistat general", "llistat_general.pdf", "PDF Files (*.pdf)")
+        if filepath:
+            self.view_model.generate_general_report(filepath)
+            QMessageBox.information(self, "Llistat Generat", f"El llistat general s'ha generat a:\n{filepath}")
+            self._open_file(filepath)
+
+    def print_banking_report(self):
+        """Genera e imprime el listado de datos bancarios."""
+        filepath, _ = QFileDialog.getSaveFileName(self, "Guardar llistat de dades bancàries", "llistat_bancari.pdf", "PDF Files (*.pdf)")
+        if filepath:
+            self.view_model.generate_banking_report(filepath)
+            QMessageBox.information(self, "Llistat Generat", f"El llistat de dades bancàries s'ha generat a:\n{filepath}")
+            self._open_file(filepath)

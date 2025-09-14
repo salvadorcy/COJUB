@@ -3,6 +3,8 @@ from PyQt6.QtCore import QObject, pyqtSignal
 from datetime import datetime
 from collections import namedtuple
 from utils.sepa_lib import generar_xml_sepa
+from .pdf_generator import PdfGenerator
+from utils import sepa_lib
 
 # Definir la estructura de los datos del socio y de configuración
 Socio = namedtuple('Socio', [
@@ -141,6 +143,14 @@ class ViewModel(QObject):
             self.load_data() # Recargar datos después de actualizar
         return success
     
+    def generate_general_report(self):
+        """Genera un listado general de socios."""
+        PdfGenerator.generate_general_report(self.filtered_socis, self.socis_map)
+
+    def generate_banking_report(self):
+        """Genera un listado de datos bancarios de socios."""
+        PdfGenerator.generate_banking_report(self.filtered_socis)
+    
     def generar_remesa_sepa(self, filename):
         """
         Genera el archivo de remesa SEPA a partir de los socios a domiciliar
@@ -157,7 +167,7 @@ class ViewModel(QObject):
             return
             
         try:
-            generar_sepa_xml(filename, socios_a_domiciliar, self.dades)
+            sepa_lib(filename, socios_a_domiciliar, self.dades)
             print(f"Remesa SEPA generada correctamente en '{filename}'.")
         except Exception as e:
             print(f"Error al generar la remesa SEPA: {e}")

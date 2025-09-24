@@ -1,0 +1,10 @@
+defusedxml==0.7.1
+dotenv==0.9.9
+fonttools==4.59.2
+fpdf2==2.8.4
+pillow==11.3.0
+pyodbc==5.2.0
+PyQt6==6.9.1
+PyQt6-Qt6==6.9.2
+PyQt6_sip==13.10.2
+python-dotenv==1.1.1

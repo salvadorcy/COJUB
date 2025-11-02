@@ -4,7 +4,7 @@ from datetime import datetime
 from collections import namedtuple
 from utils.sepa_lib import generar_xml_sepa
 from .pdf_generator import PdfGenerator
-from utils import sepa_lib
+from .report_generator import ReportGenerator
 
 # Definir la estructura de los datos del socio y de configuración
 Socio = namedtuple('Socio', [
@@ -36,6 +36,7 @@ class ViewModel(QObject):
         self.model = model
         self.all_socis = []
         self.filtered_socis = []
+        self.socis_map = {}  # Diccionario para buscar socios por ID
         self.dades = None
         self.selected_socio = None
         self.search_text = ""
@@ -46,6 +47,8 @@ class ViewModel(QObject):
         """Carga todos los datos de socios y de configuración del modelo."""
         self.all_socis = self.model.get_all_socis()
         self.dades = self.model.get_dades()
+        # Crear el mapa de socios para búsquedas rápidas
+        self.socis_map = {socio.FAMID: socio.FAMNom for socio in self.all_socis}
         self.update_filtered_socis()
         self.dades_changed.emit()
 
@@ -116,10 +119,14 @@ class ViewModel(QObject):
         fam_id = data[0]
         # Si el FAMID existe, es una actualización
         if self.model.socio_exists(fam_id):
-            return self.model.update_socio(data)
+            success = self.model.update_socio(data)
         # Si no, es una nueva inserción
         else:
-            return self.model.add_socio(data)
+            success = self.model.add_socio(data)
+        
+        if success:
+            self.load_data()  # Recargar datos después de guardar
+        return success
             
     def delete_selected_socio(self):
         """Elimina el socio seleccionado de la base de datos."""
@@ -140,16 +147,28 @@ class ViewModel(QObject):
         """Guarda los datos de configuración en la base de datos."""
         success = self.model.update_dades(data)
         if success:
-            self.load_data() # Recargar datos después de actualizar
+            self.load_data()  # Recargar datos después de actualizar
         return success
     
-    def generate_general_report(self):
-        """Genera un listado general de socios."""
-        PdfGenerator.generate_general_report(self.filtered_socis, self.socis_map)
+    def generate_general_report(self, filepath):
+        """Genera un listado general de socios en PDF."""
+        try:
+            pdf = PdfGenerator()
+            pdf.generate_general_report(self.filtered_socis, self.socis_map, filepath)
+            return True
+        except Exception as e:
+            print(f"Error al generar el listado general: {e}")
+            return False
 
-    def generate_banking_report(self):
-        """Genera un listado de datos bancarios de socios."""
-        PdfGenerator.generate_banking_report(self.filtered_socis)
+    def generate_banking_report(self, filepath):
+        """Genera un listado de datos bancarios de socios en PDF."""
+        try:
+            pdf = PdfGenerator()
+            pdf.generate_banking_report(self.filtered_socis, filepath)
+            return True
+        except Exception as e:
+            print(f"Error al generar el listado bancario: {e}")
+            return False
     
     def generar_remesa_sepa(self, filename):
         """
@@ -158,16 +177,18 @@ class ViewModel(QObject):
         """
         if not self.dades:
             print("Error: No se han cargado los datos de configuración (G_Dades).")
-            return
+            return False
             
-        socios_a_domiciliar = [s for s in self.all_socis if s.FAMbPagamentDomiciliat]
+        socios_a_domiciliar = [s for s in self.all_socis if s.FAMbPagamentDomiciliat and not s.bBaixa]
         
         if not socios_a_domiciliar:
             print("No hay socios para generar la remesa SEPA.")
-            return
+            return False
             
         try:
-            sepa_lib(filename, socios_a_domiciliar, self.dades)
+            generar_xml_sepa(self.dades, socios_a_domiciliar, filename)
             print(f"Remesa SEPA generada correctamente en '{filename}'.")
+            return True
         except Exception as e:
             print(f"Error al generar la remesa SEPA: {e}")
+            return False

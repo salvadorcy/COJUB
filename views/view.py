@@ -1,8 +1,11 @@
 from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget, QTableWidgetItem, QLabel, QLineEdit, QFormLayout, QDialog, QMessageBox, QCheckBox, QGroupBox,QFileDialog
 from PyQt6.QtCore import QSize, Qt
-from PyQt6.QtGui import QColor, QFont
+from PyQt6.QtGui import QColor, QFont, QDesktopServices
+from PyQt6.QtCore import QUrl
 from datetime import datetime
 from .style_config import STYLE_CONFIG
+import os
+import platform
 
 
 class SocioDialog(QDialog):
@@ -146,11 +149,11 @@ class SocioDialog(QDialog):
 
 class DadesDialog(QDialog):
     """Diálogo para editar los datos de configuración."""
-    def __init__(self, parent=None, dades=None):
+    def __init__(self, parent=None, view_model=None):
         super().__init__(parent)
         self.setWindowTitle("Configuració de l'Aplicació")
         self.setGeometry(100, 100, 500, 500)
-        self.dades = dades
+        self.view_model = view_model
 
         self.layout = QVBoxLayout(self)
         self.form_layout = QFormLayout()
@@ -194,31 +197,41 @@ class DadesDialog(QDialog):
     
     def fill_form(self):
         """Rellena el formulario con los datos de configuración."""
-        if self.dades:
-            data = self.dades.get_dades_data()
-            for i, attr in enumerate(self.fields):
-                value = data[i]
-                if value is not None:
-                    self.fields[attr].setText(str(value))
+        if self.view_model:
+            data = self.view_model.get_dades_data()
+            if data:
+                ordered_keys = list(self.fields.keys())
+                for i, attr in enumerate(ordered_keys):
+                    if i < len(data):
+                        value = data[i]
+                        if value is not None:
+                            self.fields[attr].setText(str(value))
 
     def get_data(self):
         """Devuelve los datos del formulario como una tupla."""
         data = []
-        for attr in self.fields:
+        ordered_keys = [
+            "TotalDefuncions", "AcumulatDefuncions", "PreuDerrama", "ComissioBancaria",
+            "IdFactura", "Presentador", "CIFPresentador", "Ordenant", "CIFOrdenant",
+            "IBANPresentador", "BICPresentador", "PWD", "QuotaSocis",
+            "SufixeRebuts", "TexteRebutFinestreta"
+        ]
+        
+        for attr in ordered_keys:
             widget = self.fields[attr]
             value = widget.text()
             if attr in ["TotalDefuncions", "AcumulatDefuncions"]:
                 try:
-                    data.append(int(value))
+                    data.append(int(value) if value else 0)
                 except (ValueError, TypeError):
                     data.append(0)
             elif attr in ["PreuDerrama", "ComissioBancaria", "QuotaSocis"]:
                 try:
-                    data.append(float(value))
+                    data.append(float(value) if value else 0.0)
                 except (ValueError, TypeError):
                     data.append(0.0)
             else:
-                data.append(value)
+                data.append(value if value else "")
         return tuple(data)
 
 class MainWindow(QMainWindow):
@@ -448,22 +461,44 @@ class MainWindow(QMainWindow):
             
     def generar_sepa(self):
         """Llama a la lógica del viewmodel para generar la remesa SEPA."""
-        # Se podría agregar un diálogo para seleccionar la ruta del archivo
-        filename = "remesa_sepa.xml"
-        self.view_model.generar_remesa_sepa(filename)
+        filename, _ = QFileDialog.getSaveFileName(self, "Guardar remesa SEPA", "remesa_sepa.xml", "XML Files (*.xml)")
+        if filename:
+            if self.view_model.generar_remesa_sepa(filename):
+                QMessageBox.information(self, "Remesa SEPA Generada", f"La remesa SEPA s'ha generat correctament a:\n{filename}")
+                self._open_file(filename)
+            else:
+                QMessageBox.critical(self, "Error", "No s'ha pogut generar la remesa SEPA.")
     
     def print_general_report(self):
         """Genera e imprime el listado general de socios."""
         filepath, _ = QFileDialog.getSaveFileName(self, "Guardar llistat general", "llistat_general.pdf", "PDF Files (*.pdf)")
         if filepath:
-            self.view_model.generate_general_report(filepath)
-            QMessageBox.information(self, "Llistat Generat", f"El llistat general s'ha generat a:\n{filepath}")
-            self._open_file(filepath)
+            if self.view_model.generate_general_report(filepath):
+                QMessageBox.information(self, "Llistat Generat", f"El llistat general s'ha generat a:\n{filepath}")
+                self._open_file(filepath)
+            else:
+                QMessageBox.critical(self, "Error", "No s'ha pogut generar el llistat general.")
 
     def print_banking_report(self):
         """Genera e imprime el listado de datos bancarios."""
         filepath, _ = QFileDialog.getSaveFileName(self, "Guardar llistat de dades bancàries", "llistat_bancari.pdf", "PDF Files (*.pdf)")
         if filepath:
-            self.view_model.generate_banking_report(filepath)
-            QMessageBox.information(self, "Llistat Generat", f"El llistat de dades bancàries s'ha generat a:\n{filepath}")
-            self._open_file(filepath)
+            if self.view_model.generate_banking_report(filepath):
+                QMessageBox.information(self, "Llistat Generat", f"El llistat de dades bancàries s'ha generat a:\n{filepath}")
+                self._open_file(filepath)
+            else:
+                QMessageBox.critical(self, "Error", "No s'ha pogut generar el llistat bancari.")
+    
+    def _open_file(self, filepath):
+        """Abre un archivo con la aplicación predeterminada del sistema."""
+        try:
+            if platform.system() == 'Windows':
+                os.startfile(filepath)
+            elif platform.system() == 'Darwin':  # macOS
+                os.system(f'open "{filepath}"')
+            else:  # Linux y otros
+                os.system(f'xdg-open "{filepath}"')
+        except Exception as e:
+            print(f"No se pudo abrir el archivo: {e}")
+            # Alternativa usando QDesktopServices
+            QDesktopServices.openUrl(QUrl.fromLocalFile(filepath))

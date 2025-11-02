@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget, QTableWidgetItem, QLabel, QLineEdit, QFormLayout, QDialog, QMessageBox, QCheckBox, QGroupBox,QFileDialog
+from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget, QTableWidgetItem, QLabel, QLineEdit, QFormLayout, QDialog, QMessageBox, QCheckBox, QGroupBox,QFileDialog,QDateEdit
 from PyQt6.QtCore import QSize, Qt
 from PyQt6.QtGui import QColor, QFont, QDesktopServices
 from PyQt6.QtCore import QUrl
@@ -30,24 +30,18 @@ class SocioDialog(QDialog):
             ("FAMTelefon", QLineEdit(), "Telèfon"),
             ("FAMMobil", QLineEdit(), "Mòbil"),
             ("FAMEmail", QLineEdit(), "Correu electrònic"),
-            ("FAMDataAlta", QLineEdit(), "Data Alta (YYYY-MM-DD)"),
+            ("FAMDataAlta", QDateEdit(), "Data Alta (DD/MM/AAAA)"),
             ("FAMCCC", QLineEdit(), "CCC"),
             ("FAMIBAN", QLineEdit(), "IBAN"),
-            ("FAMBIC", QLineEdit(), "BIC"),
-            ("FAMNSocis", QLineEdit(), "Núm. Socis"),
-            ("bBaixa", QCheckBox(), "Baixa"),
-            ("FAMObservacions", QLineEdit(), "Observacions"),
-            ("FAMbSeccio", QCheckBox(), "Secció"),
+            ("FAMBIC", QLineEdit(), "BIC"),            
+            ("FAMObservacions", QLineEdit(), "Observacions"),            
             ("FAMNIF", QLineEdit(), "NIF"),
-            ("FAMDataNaixement", QLineEdit(), "Data Naixement (YYYY-MM-DD)"),
-            ("FAMQuota", QLineEdit(), "Quota"),
-            ("FAMIDSec", QLineEdit(), "ID Secció"),
-            ("FAMDataBaixa", QLineEdit(), "Data Baixa (YYYY-MM-DD)"),
+            ("FAMDataNaixement", QDateEdit(), "Data Naixement (DD/MM/AAAA)"),
+            ("FAMQuota", QLineEdit(), "Quota"),            
+            ("FAMDataBaixa", QLineEdit(), "Data Baixa (DD/MM/AAAA)"),
             ("FAMTipus", QLineEdit(), "Tipus"),
             ("FAMSexe", QLineEdit(), "Sexe (H/M)"),
             ("FAMSociReferencia", QLineEdit(), "Soci Parella"),
-            ("FAMNewId", QLineEdit(), "Nou ID"),
-            ("FAMNewIdRef", QLineEdit(), "Nova Ref ID"),
             ("FAMbPagamentDomiciliat", QCheckBox(), "Pagament Domiciliat"),
             ("FAMbRebutCobrat", QCheckBox(), "Rebut Cobrat"),
             ("FAMPagamentFinestreta", QCheckBox(), "Pagament Finestreta")
@@ -63,8 +57,16 @@ class SocioDialog(QDialog):
                 self.form_layout.addRow(label_text, widget)
         
         # Ajustar el ancho de los campos de texto largos
+        self.fields["FAMID"].setReadOnly(True)  # ID es de solo lectura
         self.fields["FAMNom"].setMinimumWidth(300)
         self.fields["FAMAdressa"].setMinimumWidth(300)
+        self.fields["FAMObservacions"].setFixedSize(400,60)
+        self.fields["FAMDataAlta"].setDisplayFormat("dd/MM/yyyy")
+        self.fields["FAMDataAlta"].setCalendarPopup(True)
+        self.fields["FAMDataNaixement"].setDisplayFormat("dd/MM/yyyy")
+        self.fields["FAMDataNaixement"].setCalendarPopup(True)
+        self.fields["FAMDataBaixa"].setReadOnly(True)  # Campo de solo lectura        
+        
 
         self.layout.addLayout(self.form_layout)
 
@@ -100,6 +102,19 @@ class SocioDialog(QDialog):
             # Rellenar los campos con los datos del socio, usando los índices
             for i, key in enumerate(ordered_keys):
                 if key in self.fields:
+                    if key in ["FAMDataAlta", "FAMDataNaixement"]:
+                        date_value = self.socio_data[i]
+                        if date_value is None:
+                            self.fields[key].clear()
+                            continue
+                        if isinstance(date_value, datetime):
+                            self.fields[key].setDate(date_value)
+                        elif isinstance(date_value, str) and date_value:
+                            try:
+                                parsed_date = datetime.strptime(date_value, '%Y-%m-%d')
+                                self.fields[key].setDate(parsed_date)
+                            except ValueError:
+                                pass
                     widget = self.fields[key]
                     value = self.socio_data[i]
                     if isinstance(widget, QLineEdit):
@@ -255,37 +270,52 @@ class MainWindow(QMainWindow):
         main_layout = QVBoxLayout(central_widget)
         self.setCentralWidget(central_widget)
 
-        # Botones de acción
-        button_layout = QHBoxLayout()
+        # Contenedor principal de los botones (Horizontal)
+        top_functions_layout = QHBoxLayout()
+
+        # 1. Grupo de Gestión de Socios (CRUD)
+        socis_group = QGroupBox("Gestió de Socis")
+        socis_group.setFont(QFont(STYLE_CONFIG["font_family"], STYLE_CONFIG["font_size_bold"]))
+        socis_layout = QHBoxLayout(socis_group)
+        
         self.add_button = QPushButton("Afegeix Soci")
         self.edit_button = QPushButton("Edita Soci")
         self.delete_button = QPushButton("Elimina Soci")
+        
+        socis_layout.addWidget(self.add_button)
+        socis_layout.addWidget(self.edit_button)
+        socis_layout.addWidget(self.delete_button)
+        
+        top_functions_layout.addWidget(socis_group)
+
+        # 2. Grupo de Informes y Configuració
+        reports_config_group = QGroupBox("Informes i Configuració")
+        reports_config_group.setFont(QFont(STYLE_CONFIG["font_family"], STYLE_CONFIG["font_size_bold"]))
+        reports_config_layout = QHBoxLayout(reports_config_group)
+        
         self.config_button = QPushButton("Configuració")
         self.sepa_button = QPushButton("Genera Remesa SEPA")
+        self.print_general_button = QPushButton("Imprimeix Llistat General")
+        self.print_banking_button = QPushButton("Imprimeix Dades Bancàries")
+
+        reports_config_layout.addWidget(self.config_button)
+        reports_config_layout.addWidget(self.sepa_button)
+        reports_config_layout.addWidget(self.print_general_button)
+        reports_config_layout.addWidget(self.print_banking_button)
         
+        top_functions_layout.addWidget(reports_config_group)
+        
+        main_layout.addLayout(top_functions_layout)
+        
+        # Conexiones de botones (tras crear los objetos)
         self.add_button.clicked.connect(self.add_socio)
         self.edit_button.clicked.connect(self.edit_socio)
         self.delete_button.clicked.connect(self.delete_socio)
         self.config_button.clicked.connect(self.edit_dades)
         self.sepa_button.clicked.connect(self.generar_sepa)
-        
-        # Botones para los listados a imprimir
-        self.print_general_button = QPushButton("Imprimeix Llistat General")
-        self.print_banking_button = QPushButton("Imprimeix Dades Bancàries")
-        
         self.print_general_button.clicked.connect(self.print_general_report)
         self.print_banking_button.clicked.connect(self.print_banking_report)
-
-        button_layout.addWidget(self.add_button)
-        button_layout.addWidget(self.edit_button)
-        button_layout.addWidget(self.delete_button)
-        button_layout.addStretch(1)
-        button_layout.addWidget(self.config_button)
-        button_layout.addWidget(self.sepa_button)
-        button_layout.addWidget(self.print_general_button)
-        button_layout.addWidget(self.print_banking_button)
         
-        main_layout.addLayout(button_layout)
         
         # Grupo para la información de la remesa
         remesa_group = QGroupBox("Informació de Remesa")

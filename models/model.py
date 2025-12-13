@@ -4,12 +4,21 @@ import pyodbc
 from collections import namedtuple
 
 # Definir la estructura de los datos del socio y de configuración
+#Socio = namedtuple('Socio', [
+#    'FAMID', 'FAMNom', 'FAMAdressa', 'FAMPoblacio', 'FAMCodPos', 'FAMTelefon',
+#    'FAMMobil', 'FAMEmail', 'FAMDataAlta', 'FAMCCC', 'FAMIBAN', 'FAMBIC',
+#    'FAMNSocis', 'bBaixa', 'FAMObservacions', 'FAMbSeccio', 'FAMNIF',
+#    'FAMDataNaixement', 'FAMQuota', 'FAMIDSec', 'FAMDataBaixa', 'FAMTipus',
+#    'FAMSexe', 'FAMSociReferencia', 'FAMNewId', 'FAMNewIdRef',
+#    'FAMbPagamentDomiciliat', 'FAMbRebutCobrat', 'FAMPagamentFinestreta'
+#])
+
 Socio = namedtuple('Socio', [
     'FAMID', 'FAMNom', 'FAMAdressa', 'FAMPoblacio', 'FAMCodPos', 'FAMTelefon',
-    'FAMMobil', 'FAMEmail', 'FAMDataAlta', 'FAMCCC', 'FAMIBAN', 'FAMBIC',
-    'FAMNSocis', 'bBaixa', 'FAMObservacions', 'FAMbSeccio', 'FAMNIF',
-    'FAMDataNaixement', 'FAMQuota', 'FAMIDSec', 'FAMDataBaixa', 'FAMTipus',
-    'FAMSexe', 'FAMSociReferencia', 'FAMNewId', 'FAMNewIdRef',
+    'FAMMobil', 'FAMEmail', 'FAMDataAlta', 'FAMIBAN', 'FAMBIC',
+    'FAMNSocis', 'bBaixa', 'FAMObservacions', 'FAMNIF',
+    'FAMDataNaixement', 'FAMQuota', 'FAMDataBaixa',
+    'FAMSexe', 'FAMSociReferencia',
     'FAMbPagamentDomiciliat', 'FAMbRebutCobrat', 'FAMPagamentFinestreta'
 ])
 
@@ -95,12 +104,14 @@ class DatabaseModel:
     def update_socio(self, data):
         """Actualiza un socio existente en la base de datos."""
         fam_id = data[0]
-        update_pairs = ', '.join([f"{col} = ?" for col in Socio._fields])
+        # Excluir FAMID del SET ya que no se debe actualizar la clave primaria
+        update_fields = [f for f in Socio._fields if f != 'FAMID']
+        update_pairs = ', '.join([f"{col} = ?" for col in update_fields])
         query = f"UPDATE scazorla_sa.G_Socis SET {update_pairs} WHERE FAMID = ?"
         try:
             with self.conn.cursor() as cursor:
-                # La tupla de datos debe ser reordenada para que el FAMID vaya al final
-                ordered_data = data + (fam_id,)
+                # Excluir el primer elemento (FAMID) de data y agregar FAMID al final para el WHERE
+                ordered_data = data[1:] + (fam_id,)
                 cursor.execute(query, ordered_data)
                 self.conn.commit()
             return True

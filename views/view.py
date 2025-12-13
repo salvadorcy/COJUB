@@ -15,7 +15,7 @@ class SocioDialog(QDialog):
         self.setWindowTitle("Edita Soci" if socio else "Afegeix Soci")
         self.setGeometry(100, 100, 650, 600)
         self.socio_data = socio
-        self.todos_socis = todos_socis
+        self.todos_socis = todos_socis if todos_socis else []
 
         self.layout = QVBoxLayout(self)
         self.form_layout = QFormLayout()
@@ -31,7 +31,6 @@ class SocioDialog(QDialog):
             ("FAMMobil", QLineEdit(), "Mòbil"),
             ("FAMEmail", QLineEdit(), "Correu electrònic"),
             ("FAMDataAlta", QDateEdit(), "Data Alta (DD/MM/AAAA)"),
-            ("FAMCCC", QLineEdit(), "CCC"),
             ("FAMIBAN", QLineEdit(), "IBAN"),
             ("FAMBIC", QLineEdit(), "BIC"),            
             ("FAMObservacions", QLineEdit(), "Observacions"),            
@@ -39,7 +38,6 @@ class SocioDialog(QDialog):
             ("FAMDataNaixement", QDateEdit(), "Data Naixement (DD/MM/AAAA)"),
             ("FAMQuota", QLineEdit(), "Quota"),            
             ("FAMDataBaixa", QLineEdit(), "Data Baixa (DD/MM/AAAA)"),
-            ("FAMTipus", QLineEdit(), "Tipus"),
             ("FAMSexe", QLineEdit(), "Sexe (H/M)"),
             ("FAMSociReferencia", QLineEdit(), "Soci Parella"),
             ("FAMbPagamentDomiciliat", QCheckBox(), "Pagament Domiciliat"),
@@ -56,8 +54,24 @@ class SocioDialog(QDialog):
                 self.fields[attr] = widget
                 self.form_layout.addRow(label_text, widget)
         
+        # ========================================
+        # CONFIGURACIÓN DEL CAMPO ID (MEJORADO)
+        # ========================================
+        # Hacer el campo ID no editable, no focusable y con estilo deshabilitado
+        self.fields["FAMID"].setReadOnly(True)
+        self.fields["FAMID"].setFocusPolicy(Qt.FocusPolicy.NoFocus)  # No se puede enfocar
+        self.fields["FAMID"].setEnabled(False)  # Apariencia de deshabilitado
+        
+        # Estilo adicional para que se vea claramente como no editable
+        self.fields["FAMID"].setStyleSheet("""
+            QLineEdit:disabled {
+                background-color: #f0f0f0;
+                color: #666666;
+                border: 1px solid #cccccc;
+            }
+        """)
+        
         # Ajustar el ancho de los campos de texto largos
-        self.fields["FAMID"].setReadOnly(True)  # ID es de solo lectura
         self.fields["FAMNom"].setMinimumWidth(300)
         self.fields["FAMAdressa"].setMinimumWidth(300)
         self.fields["FAMObservacions"].setFixedSize(400,60)
@@ -82,10 +96,44 @@ class SocioDialog(QDialog):
 
         self.fill_form()
     
+    def calcular_nuevo_id(self):
+        """
+        Calcula automáticamente el siguiente ID disponible.
+        
+        Lógica:
+        - Busca el ID numérico más alto en la lista de socios
+        - Suma 1 para obtener el nuevo ID
+        - Retorna el ID como string
+        """
+        if not self.todos_socis:
+            return "1001"  # ID inicial por defecto
+        
+        # Extraer todos los IDs numéricos
+        ids_numericos = []
+        for socio in self.todos_socis:
+            try:
+                # Intentar convertir FAMID a número
+                id_num = int(socio.FAMID.strip())
+                ids_numericos.append(id_num)
+            except (ValueError, AttributeError):
+                # Si no es numérico, ignorar
+                continue
+        
+        if not ids_numericos:
+            return "1001"  # Si no hay IDs numéricos, empezar en 1001
+        
+        # Encontrar el ID máximo y sumar 1
+        max_id = max(ids_numericos)
+        nuevo_id = max_id + 1
+        
+        return str(nuevo_id)
+    
     def fill_form(self):
         """Rellena el formulario con los datos del socio si existe."""
         if self.socio_data:
-            # Deshabilitar FAMID en modo edición para evitar cambios
+            # ========================================
+            # MODO EDICIÓN: Deshabilitar campo ID
+            # ========================================
             self.fields["FAMID"].setEnabled(False)
             
             # Lista ordenada de los nombres de los atributos para garantizar el orden
@@ -98,8 +146,7 @@ class SocioDialog(QDialog):
                 "FAMNewId", "FAMNewIdRef", "FAMbPagamentDomiciliat",
                 "FAMbRebutCobrat", "FAMPagamentFinestreta"
             ]
-
-            # Rellenar los campos con los datos del socio, usando los índices
+            
             for i, key in enumerate(ordered_keys):
                 if key in self.fields:
                     if key in ["FAMDataAlta", "FAMDataNaixement"]:
@@ -121,6 +168,16 @@ class SocioDialog(QDialog):
                         widget.setText(str(value) if value is not None else "")
                     elif isinstance(widget, QCheckBox):
                         widget.setChecked(bool(value))
+        else:
+            # ========================================
+            # MODO NUEVO: Calcular y asignar ID automático
+            # ========================================
+            nuevo_id = self.calcular_nuevo_id()
+            self.fields["FAMID"].setText(nuevo_id)
+            self.fields["FAMID"].setEnabled(False)  # Mantener deshabilitado
+            
+            # Establecer fecha de alta por defecto a hoy
+            self.fields["FAMDataAlta"].setDate(datetime.now())
 
     def get_data(self):
         """Devuelve los datos del formulario como una tupla, asegurando el orden correcto."""
@@ -139,26 +196,54 @@ class SocioDialog(QDialog):
             if key in self.fields:
                 widget = self.fields[key]
                 value = None
-                if isinstance(widget, QLineEdit):
+                
+                # Manejar QDateEdit
+                if isinstance(widget, QDateEdit):
+                    qdate = widget.date()
+                    # Convertir QDate a datetime de Python
+                    value = datetime(qdate.year(), qdate.month(), qdate.day())
+                elif isinstance(widget, QLineEdit):
                     value = widget.text()
-                    if key in ["FAMDataAlta", "FAMDataNaixement", "FAMDataBaixa"] and value:
+                    
+                    # Campos numéricos específicos
+                    if key in ["FAMNSocis"]:
                         try:
-                            value = datetime.strptime(value, '%Y-%m-%d')
-                        except ValueError:
-                            value = None
-                    elif key in ["FAMNSocis"]:
-                        try:
-                            value = int(value)
+                            value = int(value) if value else 0
                         except (ValueError, TypeError):
                             value = 0
                     elif key in ["FAMQuota"]:
                         try:
-                            value = float(value)
+                            value = float(value) if value else 0.0
                         except (ValueError, TypeError):
                             value = 0.0
+                    elif key in ["FAMDataBaixa"] and value:
+                        try:
+                            value = datetime.strptime(value, '%Y-%m-%d')
+                        except ValueError:
+                            value = None
+                            
                 elif isinstance(widget, QCheckBox):
                     value = widget.isChecked()
+                    
+                # Valores por defecto para campos no en el formulario
+                if key not in self.fields:
+                    if key == "FAMNSocis":
+                        value = 0
+                    elif key == "bBaixa":
+                        value = False
+                    elif key == "FAMbSeccio":
+                        value = False
+                    elif key in ["FAMIDSec", "FAMNewId", "FAMNewIdRef"]:
+                        value = ""
+                    elif key == "FAMQuota":
+                        value = 0.0
+                    elif key in ["FAMDataBaixa", "FAMDataNaixement"]:
+                        value = None
+                    else:
+                        value = ""
+                
                 data.append(value)
+        
         return tuple(data)
 
 

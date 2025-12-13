@@ -5,15 +5,18 @@ from collections import namedtuple
 from utils.sepa_lib import generar_xml_sepa
 from .pdf_generator import PdfGenerator
 from .report_generator import ReportGenerator
+from .etiquetas_generator import generar_etiquetas_socios
 
-# Definir la estructura de los datos del socio y de configuración
+# ============================================================================
+# ESTRUCTURA CORREGIDA - 22 campos (DEBE COINCIDIR CON model.py)
+# ============================================================================
 Socio = namedtuple('Socio', [
     'FAMID', 'FAMNom', 'FAMAdressa', 'FAMPoblacio', 'FAMCodPos', 'FAMTelefon',
-    'FAMMobil', 'FAMEmail', 'FAMDataAlta', 'FAMCCC', 'FAMIBAN', 'FAMBIC',
-    'FAMNSocis', 'bBaixa', 'FAMObservacions', 'FAMbSeccio', 'FAMNIF',
-    'FAMDataNaixement', 'FAMQuota', 'FAMIDSec', 'FAMDataBaixa', 'FAMTipus',
-    'FAMSexe', 'FAMSociReferencia', 'FAMNewId', 'FAMNewIdRef',
-    'FAMbPagamentDomiciliat', 'FAMbRebutCobrat', 'FAMPagamentFinestreta'
+    'FAMMobil', 'FAMEmail', 'FAMDataAlta', 'FAMIBAN', 'FAMBIC',
+    'FAMObservacions', 'FAMNIF',
+    'FAMDataNaixement', 'FAMQuota', 'FAMDataBaixa',
+    'FAMSexe', 'FAMSociReferencia',
+    'FAMbPagamentDomiciliat', 'FAMbRebutCobrat', 'FAMPagamentFinestreta', 'bBaixa'
 ])
 
 Dades = namedtuple('Dades', [

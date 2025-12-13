@@ -16,10 +16,10 @@ from collections import namedtuple
 Socio = namedtuple('Socio', [
     'FAMID', 'FAMNom', 'FAMAdressa', 'FAMPoblacio', 'FAMCodPos', 'FAMTelefon',
     'FAMMobil', 'FAMEmail', 'FAMDataAlta', 'FAMIBAN', 'FAMBIC',
-    'FAMNSocis', 'bBaixa', 'FAMObservacions', 'FAMNIF',
+    'FAMObservacions', 'FAMNIF',
     'FAMDataNaixement', 'FAMQuota', 'FAMDataBaixa',
     'FAMSexe', 'FAMSociReferencia',
-    'FAMbPagamentDomiciliat', 'FAMbRebutCobrat', 'FAMPagamentFinestreta'
+    'FAMbPagamentDomiciliat', 'FAMbRebutCobrat', 'FAMPagamentFinestreta','bBaixa'
 ])
 
 Dades = namedtuple('Dades', [
@@ -66,8 +66,8 @@ class DatabaseModel:
         """Recupera todos los socios de la base de datos."""
         query = """
             SELECT FAMID,FAMNom,FAMAdressa,FAMPoblacio,FAMCodPos,FAMTelefon,FAMMobil,FAMEmail,FAMDataAlta,FAMIBAN,FAMBIC,
-                FAMNSocis,bBaixa,FAMObservacions,FAMNIF,FAMDataNaixement,FAMQuota,FAMDataBaixa,FAMSexe,FAMSociReferencia,
-                FAMbPagamentDomiciliat,FAMbRebutCobrat,FAMPagamentFinestreta FROM scazorla_sa.G_Socis
+                FAMObservacions,FAMNIF,FAMDataNaixement,FAMQuota,FAMDataBaixa,FAMSexe,FAMSociReferencia,
+                FAMbPagamentDomiciliat,FAMbRebutCobrat,FAMPagamentFinestreta,bBaixa FROM scazorla_sa.G_Socis
         """
         with self.conn.cursor() as cursor:
             cursor.execute(query)
@@ -93,12 +93,14 @@ class DatabaseModel:
 
     def add_socio(self, data):
         """Añade un nuevo socio a la base de datos."""
-        placeholders = ', '.join(['?'] * len(data))
+        n_placeholders = len(data)+1
+        placeholders = ', '.join(['?'] * n_placeholders)
         columns = ', '.join(Socio._fields)
         query = f"INSERT INTO scazorla_sa.G_Socis ({columns}) VALUES ({placeholders})"
+        valores_a_insertar = (*data, False)
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(query, data)
+                cursor.execute(query, valores_a_insertar)
                 self.conn.commit()
             return True
         except pyodbc.Error as ex:

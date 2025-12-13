@@ -21,6 +21,9 @@ class SocioDialog(QDialog):
         self.form_layout = QFormLayout()
         
         self.fields = {}
+        # ============================================================================
+        # CAMPOS SIMPLIFICADOS - 22 campos (coincide con model.py)
+        # ============================================================================
         fields_config = [
             ("FAMID", QLineEdit(), "ID"),
             ("FAMNom", QLineEdit(), "Nom"),
@@ -30,19 +33,20 @@ class SocioDialog(QDialog):
             ("FAMTelefon", QLineEdit(), "Telèfon"),
             ("FAMMobil", QLineEdit(), "Mòbil"),
             ("FAMEmail", QLineEdit(), "Correu electrònic"),
-            ("FAMDataAlta", QDateEdit(), "Data Alta (DD/MM/AAAA)"),
+            ("FAMDataAlta", QLineEdit(), "Data Alta (YYYY-MM-DD)"),
             ("FAMIBAN", QLineEdit(), "IBAN"),
-            ("FAMBIC", QLineEdit(), "BIC"),            
-            ("FAMObservacions", QLineEdit(), "Observacions"),            
+            ("FAMBIC", QLineEdit(), "BIC"),
+            ("FAMObservacions", QLineEdit(), "Observacions"),
             ("FAMNIF", QLineEdit(), "NIF"),
-            ("FAMDataNaixement", QDateEdit(), "Data Naixement (DD/MM/AAAA)"),
-            ("FAMQuota", QLineEdit(), "Quota"),            
-            ("FAMDataBaixa", QLineEdit(), "Data Baixa (DD/MM/AAAA)"),
+            ("FAMDataNaixement", QLineEdit(), "Data Naixement (YYYY-MM-DD)"),
+            ("FAMQuota", QLineEdit(), "Quota"),
+            ("FAMDataBaixa", QLineEdit(), "Data Baixa (YYYY-MM-DD)"),
             ("FAMSexe", QLineEdit(), "Sexe (H/M)"),
             ("FAMSociReferencia", QLineEdit(), "Soci Parella"),
             ("FAMbPagamentDomiciliat", QCheckBox(), "Pagament Domiciliat"),
             ("FAMbRebutCobrat", QCheckBox(), "Rebut Cobrat"),
-            ("FAMPagamentFinestreta", QCheckBox(), "Pagament Finestreta")
+            ("FAMPagamentFinestreta", QCheckBox(), "Pagament Finestreta"),
+            ("bBaixa", QCheckBox(), "Baixa")
         ]
 
         for attr, widget, label_text in fields_config:
@@ -54,15 +58,13 @@ class SocioDialog(QDialog):
                 self.fields[attr] = widget
                 self.form_layout.addRow(label_text, widget)
         
-        # ========================================
-        # CONFIGURACIÓN DEL CAMPO ID (MEJORADO)
-        # ========================================
-        # Hacer el campo ID no editable, no focusable y con estilo deshabilitado
+        # ============================================================================
+        # CONFIGURACIÓN DE CAMPOS
+        # ============================================================================
+        # Campo ID: readonly, no focusable, estilo deshabilitado
         self.fields["FAMID"].setReadOnly(True)
-        self.fields["FAMID"].setFocusPolicy(Qt.FocusPolicy.NoFocus)  # No se puede enfocar
-        self.fields["FAMID"].setEnabled(False)  # Apariencia de deshabilitado
-        
-        # Estilo adicional para que se vea claramente como no editable
+        self.fields["FAMID"].setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.fields["FAMID"].setEnabled(False)
         self.fields["FAMID"].setStyleSheet("""
             QLineEdit:disabled {
                 background-color: #f0f0f0;
@@ -71,16 +73,13 @@ class SocioDialog(QDialog):
             }
         """)
         
-        # Ajustar el ancho de los campos de texto largos
+        # Campos de texto largos
         self.fields["FAMNom"].setMinimumWidth(300)
         self.fields["FAMAdressa"].setMinimumWidth(300)
-        self.fields["FAMObservacions"].setFixedSize(400,60)
-        self.fields["FAMDataAlta"].setDisplayFormat("dd/MM/yyyy")
-        self.fields["FAMDataAlta"].setCalendarPopup(True)
-        self.fields["FAMDataNaixement"].setDisplayFormat("dd/MM/yyyy")
-        self.fields["FAMDataNaixement"].setCalendarPopup(True)
-        self.fields["FAMDataBaixa"].setReadOnly(True)  # Campo de solo lectura        
+        self.fields["FAMObservacions"].setMinimumWidth(300)
         
+        # Campo de baja: readonly
+        self.fields["FAMDataBaixa"].setReadOnly(True)
 
         self.layout.addLayout(self.form_layout)
 
@@ -99,30 +98,21 @@ class SocioDialog(QDialog):
     def calcular_nuevo_id(self):
         """
         Calcula automáticamente el siguiente ID disponible.
-        
-        Lógica:
-        - Busca el ID numérico más alto en la lista de socios
-        - Suma 1 para obtener el nuevo ID
-        - Retorna el ID como string
         """
         if not self.todos_socis:
-            return "1001"  # ID inicial por defecto
+            return "1001"
         
-        # Extraer todos los IDs numéricos
         ids_numericos = []
         for socio in self.todos_socis:
             try:
-                # Intentar convertir FAMID a número
                 id_num = int(socio.FAMID.strip())
                 ids_numericos.append(id_num)
             except (ValueError, AttributeError):
-                # Si no es numérico, ignorar
                 continue
         
         if not ids_numericos:
-            return "1001"  # Si no hay IDs numéricos, empezar en 1001
+            return "1001"
         
-        # Encontrar el ID máximo y sumar 1
         max_id = max(ids_numericos)
         nuevo_id = max_id + 1
         
@@ -131,65 +121,64 @@ class SocioDialog(QDialog):
     def fill_form(self):
         """Rellena el formulario con los datos del socio si existe."""
         if self.socio_data:
-            # ========================================
-            # MODO EDICIÓN: Deshabilitar campo ID
-            # ========================================
+            # Modo edición: deshabilitar campo ID
             self.fields["FAMID"].setEnabled(False)
             
-            # Lista ordenada de los nombres de los atributos para garantizar el orden
+            # ============================================================================
+            # ORDEN DE CAMPOS - 22 campos (DEBE COINCIDIR CON model.py)
+            # ============================================================================
             ordered_keys = [
                 "FAMID", "FAMNom", "FAMAdressa", "FAMPoblacio", "FAMCodPos",
-                "FAMTelefon", "FAMMobil", "FAMEmail", "FAMDataAlta", "FAMCCC",
-                "FAMIBAN", "FAMBIC", "FAMNSocis", "bBaixa", "FAMObservacions",
-                "FAMbSeccio", "FAMNIF", "FAMDataNaixement", "FAMQuota", "FAMIDSec",
-                "FAMDataBaixa", "FAMTipus", "FAMSexe", "FAMSociReferencia",
-                "FAMNewId", "FAMNewIdRef", "FAMbPagamentDomiciliat",
-                "FAMbRebutCobrat", "FAMPagamentFinestreta"
+                "FAMTelefon", "FAMMobil", "FAMEmail", "FAMDataAlta", "FAMIBAN",
+                "FAMBIC", "FAMObservacions", "FAMNIF", "FAMDataNaixement",
+                "FAMQuota", "FAMDataBaixa", "FAMSexe", "FAMSociReferencia",
+                "FAMbPagamentDomiciliat", "FAMbRebutCobrat", "FAMPagamentFinestreta",
+                "bBaixa"
             ]
-            
+
+            # Rellenar los campos con los datos del socio
             for i, key in enumerate(ordered_keys):
-                if key in self.fields:
-                    if key in ["FAMDataAlta", "FAMDataNaixement"]:
-                        date_value = self.socio_data[i]
-                        if date_value is None:
-                            self.fields[key].clear()
-                            continue
-                        if isinstance(date_value, datetime):
-                            self.fields[key].setDate(date_value)
-                        elif isinstance(date_value, str) and date_value:
-                            try:
-                                parsed_date = datetime.strptime(date_value, '%Y-%m-%d')
-                                self.fields[key].setDate(parsed_date)
-                            except ValueError:
-                                pass
+                if key in self.fields and i < len(self.socio_data):
                     widget = self.fields[key]
                     value = self.socio_data[i]
+                    
                     if isinstance(widget, QLineEdit):
-                        widget.setText(str(value) if value is not None else "")
+                        # Manejar fechas
+                        if key in ["FAMDataAlta", "FAMDataNaixement", "FAMDataBaixa"]:
+                            if value and isinstance(value, datetime):
+                                widget.setText(value.strftime('%Y-%m-%d'))
+                            else:
+                                widget.setText("")
+                        else:
+                            widget.setText(str(value) if value is not None else "")
                     elif isinstance(widget, QCheckBox):
                         widget.setChecked(bool(value))
         else:
-            # ========================================
-            # MODO NUEVO: Calcular y asignar ID automático
-            # ========================================
+            # Modo nuevo: calcular ID automático
             nuevo_id = self.calcular_nuevo_id()
             self.fields["FAMID"].setText(nuevo_id)
-            self.fields["FAMID"].setEnabled(False)  # Mantener deshabilitado
+            self.fields["FAMID"].setEnabled(False)
             
             # Establecer fecha de alta por defecto a hoy
-            self.fields["FAMDataAlta"].setDate(datetime.now())
+            self.fields["FAMDataAlta"].setText(datetime.now().strftime('%Y-%m-%d'))
+            
+            # Establecer bBaixa a False por defecto
+            self.fields["bBaixa"].setChecked(False)
 
     def get_data(self):
-        """Devuelve los datos del formulario como una tupla, asegurando el orden correcto."""
+        """Devuelve los datos del formulario como una tupla."""
         data = []
+        
+        # ============================================================================
+        # ORDEN DE CAMPOS - 22 campos (DEBE COINCIDIR CON model.py)
+        # ============================================================================
         ordered_keys = [
             "FAMID", "FAMNom", "FAMAdressa", "FAMPoblacio", "FAMCodPos",
-            "FAMTelefon", "FAMMobil", "FAMEmail", "FAMDataAlta", "FAMCCC",
-            "FAMIBAN", "FAMBIC", "FAMNSocis", "bBaixa", "FAMObservacions",
-            "FAMbSeccio", "FAMNIF", "FAMDataNaixement", "FAMQuota", "FAMIDSec",
-            "FAMDataBaixa", "FAMTipus", "FAMSexe", "FAMSociReferencia",
-            "FAMNewId", "FAMNewIdRef", "FAMbPagamentDomiciliat",
-            "FAMbRebutCobrat", "FAMPagamentFinestreta"
+            "FAMTelefon", "FAMMobil", "FAMEmail", "FAMDataAlta", "FAMIBAN",
+            "FAMBIC", "FAMObservacions", "FAMNIF", "FAMDataNaixement",
+            "FAMQuota", "FAMDataBaixa", "FAMSexe", "FAMSociReferencia",
+            "FAMbPagamentDomiciliat", "FAMbRebutCobrat", "FAMPagamentFinestreta",
+            "bBaixa"
         ]
         
         for key in ordered_keys:
@@ -197,52 +186,36 @@ class SocioDialog(QDialog):
                 widget = self.fields[key]
                 value = None
                 
-                # Manejar QDateEdit
-                if isinstance(widget, QDateEdit):
-                    qdate = widget.date()
-                    # Convertir QDate a datetime de Python
-                    value = datetime(qdate.year(), qdate.month(), qdate.day())
-                elif isinstance(widget, QLineEdit):
+                if isinstance(widget, QLineEdit):
                     value = widget.text()
                     
-                    # Campos numéricos específicos
-                    if key in ["FAMNSocis"]:
-                        try:
-                            value = int(value) if value else 0
-                        except (ValueError, TypeError):
-                            value = 0
-                    elif key in ["FAMQuota"]:
-                        try:
-                            value = float(value) if value else 0.0
-                        except (ValueError, TypeError):
-                            value = 0.0
-                    elif key in ["FAMDataBaixa"] and value:
+                    # Convertir fechas
+                    if key in ["FAMDataAlta", "FAMDataNaixement", "FAMDataBaixa"] and value:
                         try:
                             value = datetime.strptime(value, '%Y-%m-%d')
                         except ValueError:
                             value = None
+                    # Convertir números
+                    elif key == "FAMQuota":
+                        try:
+                            value = float(value) if value else 0.0
+                        except (ValueError, TypeError):
+                            value = 0.0
                             
                 elif isinstance(widget, QCheckBox):
                     value = widget.isChecked()
-                    
-                # Valores por defecto para campos no en el formulario
-                if key not in self.fields:
-                    if key == "FAMNSocis":
-                        value = 0
-                    elif key == "bBaixa":
-                        value = False
-                    elif key == "FAMbSeccio":
-                        value = False
-                    elif key in ["FAMIDSec", "FAMNewId", "FAMNewIdRef"]:
-                        value = ""
-                    elif key == "FAMQuota":
-                        value = 0.0
-                    elif key in ["FAMDataBaixa", "FAMDataNaixement"]:
-                        value = None
-                    else:
-                        value = ""
                 
                 data.append(value)
+            else:
+                # Si el campo no existe en el formulario, agregar valor por defecto
+                if key == "FAMQuota":
+                    data.append(0.0)
+                elif key == "bBaixa":
+                    data.append(False)
+                elif key in ["FAMbPagamentDomiciliat", "FAMbRebutCobrat", "FAMPagamentFinestreta"]:
+                    data.append(False)
+                else:
+                    data.append("")
         
         return tuple(data)
 

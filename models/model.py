@@ -64,7 +64,11 @@ class DatabaseModel:
 
     def get_all_socis(self):
         """Recupera todos los socios de la base de datos."""
-        query = "SELECT * FROM scazorla_sa.G_Socis"
+        query = """
+            SELECT FAMID,FAMNom,FAMAdressa,FAMPoblacio,FAMCodPos,FAMTelefon,FAMMobil,FAMEmail,FAMDataAlta,FAMIBAN,FAMBIC,
+                FAMNSocis,bBaixa,FAMObservacions,FAMNIF,FAMDataNaixement,FAMQuota,FAMDataBaixa,FAMSexe,FAMSociReferencia,
+                FAMbPagamentDomiciliat,FAMbRebutCobrat,FAMPagamentFinestreta FROM scazorla_sa.G_Socis
+        """
         with self.conn.cursor() as cursor:
             cursor.execute(query)
             return [Socio(*row) for row in cursor.fetchall()]

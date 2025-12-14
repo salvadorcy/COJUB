@@ -172,6 +172,30 @@ class ViewModel(QObject):
         except Exception as e:
             print(f"Error al generar el listado bancario: {e}")
             return False
+    def generate_etiquetas(self, filepath):
+        """
+        Genera etiquetas en PDF para los socios.
+        
+        Características:
+        - Solo socios activos (no dados de baja)
+        - Sin duplicados de dirección (misma familia)
+        - Formato MULTI3 4704 (70 x 37 mm)
+        - 3 columnas x 8 filas = 24 etiquetas por hoja A4
+        
+        Args:
+            filepath: Ruta donde guardar el PDF
+            
+        Returns:
+            True si se generó correctamente, False en caso contrario
+        """
+        try:
+            # Usar todos los socios (no solo los filtrados)
+            # El generador ya filtra activos y duplicados
+            success = generar_etiquetas_socios(self.all_socis, filepath)
+            return success
+        except Exception as e:
+            print(f"Error al generar etiquetas: {e}")
+            return False
     
     def generar_remesa_sepa(self, filename):
         """

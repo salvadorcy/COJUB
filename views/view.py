@@ -1,10 +1,14 @@
+from PyQt6.QtWidgets import QFileDialog
+import os
+import platform
+from PyQt6.QtGui import QDesktopServices
+from PyQt6.QtCore import QUrl
 from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget, QTableWidgetItem, QLabel, QLineEdit, QFormLayout, QDialog, QMessageBox, QCheckBox, QGroupBox,QFileDialog,QDateEdit
 from PyQt6.QtCore import QSize, Qt
 from PyQt6.QtGui import QColor, QFont, QDesktopServices
 from PyQt6.QtCore import QUrl
 from datetime import datetime
 from .style_config import STYLE_CONFIG
-import os
 import platform
 
 
@@ -355,11 +359,14 @@ class MainWindow(QMainWindow):
         self.sepa_button = QPushButton("Genera Remesa SEPA")
         self.print_general_button = QPushButton("Imprimeix Llistat General")
         self.print_banking_button = QPushButton("Imprimeix Dades Bancàries")
+        self.print_etiquetes_button = QPushButton("Imprimeix Etiquetes")
+        
 
         reports_config_layout.addWidget(self.config_button)
         reports_config_layout.addWidget(self.sepa_button)
         reports_config_layout.addWidget(self.print_general_button)
         reports_config_layout.addWidget(self.print_banking_button)
+        reports_config_layout.addWidget(self.print_etiquetes_button)
         
         top_functions_layout.addWidget(reports_config_group)
         
@@ -373,6 +380,7 @@ class MainWindow(QMainWindow):
         self.sepa_button.clicked.connect(self.generar_sepa)
         self.print_general_button.clicked.connect(self.print_general_report)
         self.print_banking_button.clicked.connect(self.print_banking_report)
+        self.print_etiquetes_button.clicked.connect(self.print_etiquetas)
         
         
         # Grupo para la información de la remesa
@@ -590,3 +598,34 @@ class MainWindow(QMainWindow):
             print(f"No se pudo abrir el archivo: {e}")
             # Alternativa usando QDesktopServices
             QDesktopServices.openUrl(QUrl.fromLocalFile(filepath))
+            
+    def print_etiquetas(self):
+        """Genera e imprime etiquetas de socios en PDF."""
+        # Pedir al usuario dónde guardar el archivo
+        filepath, _ = QFileDialog.getSaveFileName(
+            self,
+            "Desa les Etiquetes",
+            "etiquetas_socios.pdf",
+            "PDF Files (*.pdf)"
+        )
+        
+        if filepath:
+            # Asegurarse de que tiene extensión .pdf
+            if not filepath.endswith('.pdf'):
+                filepath += '.pdf'
+            
+            # Generar el PDF
+            if self.view_model.generate_etiquetas(filepath):
+                QMessageBox.information(
+                    self,
+                    "Èxit",
+                    f"Etiquetes generades correctament.\n\nArxiu: {filepath}"
+                )
+                # Abrir el PDF automáticamente
+                self._open_file(filepath)
+            else:
+                QMessageBox.critical(
+                    self,
+                    "Error",
+                    "No s'han pogut generar les etiquetes."
+                )

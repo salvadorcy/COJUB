@@ -19,7 +19,8 @@ Socio = namedtuple('Socio', [
     'FAMObservacions', 'FAMNIF',
     'FAMDataNaixement', 'FAMQuota', 'FAMDataBaixa',
     'FAMSexe', 'FAMSociReferencia',
-    'FAMbPagamentDomiciliat', 'FAMbRebutCobrat', 'FAMPagamentFinestreta','bBaixa'
+    'FAMbPagamentDomiciliat', 'FAMbRebutCobrat', 'FAMPagamentFinestreta', 'bBaixa',
+    'FAMTelefonEmergencia'
 ])
 
 Dades = namedtuple('Dades', [
@@ -67,7 +68,8 @@ class DatabaseModel:
         query = """
             SELECT FAMID,FAMNom,FAMAdressa,FAMPoblacio,FAMCodPos,FAMTelefon,FAMMobil,FAMEmail,FAMDataAlta,FAMIBAN,FAMBIC,
                 FAMObservacions,FAMNIF,FAMDataNaixement,FAMQuota,FAMDataBaixa,FAMSexe,FAMSociReferencia,
-                FAMbPagamentDomiciliat,FAMbRebutCobrat,FAMPagamentFinestreta,bBaixa FROM scazorla_sa.G_Socis
+                FAMbPagamentDomiciliat,FAMbRebutCobrat,FAMPagamentFinestreta,bBaixa,FAMTelefonEmergencia 
+            FROM scazorla_sa.G_Socis
         """
         with self.conn.cursor() as cursor:
             cursor.execute(query)
@@ -93,14 +95,15 @@ class DatabaseModel:
 
     def add_socio(self, data):
         """Añade un nuevo socio a la base de datos."""
-        n_placeholders = len(data)+1
+        # data ya viene con 22 campos desde el diálogo
+        n_placeholders = len(data)  # ✅ Usar directamente len(data)
         placeholders = ', '.join(['?'] * n_placeholders)
         columns = ', '.join(Socio._fields)
         query = f"INSERT INTO scazorla_sa.G_Socis ({columns}) VALUES ({placeholders})"
-        valores_a_insertar = (*data, False)
+    
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(query, valores_a_insertar)
+                cursor.execute(query, data)  # ✅ Pasar data directamente
                 self.conn.commit()
             return True
         except pyodbc.Error as ex:
@@ -110,14 +113,73 @@ class DatabaseModel:
     def update_socio(self, data):
         """Actualiza un socio existente en la base de datos."""
         fam_id = data[0]
+
+        # ============================================================================
+        # LIMPIEZA Y VALIDACIÓN DE DATOS
+        # ============================================================================
+        data_clean = list(data)
+    
+        for i, (field_name, value) in enumerate(zip(Socio._fields, data)):
+            # Campos numéricos: convertir strings vacíos a None
+            if field_name == "FAMQuota":
+                if value == "" or value is None:
+                    data_clean[i] = None
+                elif isinstance(value, str):
+                    try:
+                        data_clean[i] = float(value.replace(',', '.'))
+                    except:
+                        data_clean[i] = None
+        
+            # Campos de fecha: convertir strings a datetime
+            elif field_name in ["FAMDataAlta", "FAMDataNaixement", "FAMDataBaixa"]:
+                if value is None or value == "":
+                    data_clean[i] = None
+                elif isinstance(value, str):
+                    try:
+                        data_clean[i] = datetime.strptime(value.split()[0], '%Y-%m-%d')
+                    except:
+                        data_clean[i] = None
+        
+            # Campos booleanos: convertir strings a bool
+            elif field_name in ["FAMbPagamentDomiciliat", "FAMbRebutCobrat", "FAMPagamentFinestreta", "bBaixa"]:
+                if isinstance(value, str):
+                    data_clean[i] = value.upper() in ['TRUE', '1', 'YES']
+                elif value is None:
+                    data_clean[i] = False
+        
+            # Strings vacíos a None
+            elif isinstance(value, str) and value.strip() == "":
+                data_clean[i] = None
+    
+        data = tuple(data_clean)
+    
+        # ============================================================================
+        # DEBUG: Imprimir datos para diagnóstico
+        # ============================================================================
+        print("\n" + "="*80)
+        print("DEBUG - DATOS A ACTUALIZAR:")
+        print("="*80)
+        for i, (field_name, value) in enumerate(zip(Socio._fields, data)):
+            print(f"{i:2d}. {field_name:25s} = {value!r:40s} (tipo: {type(value).__name__})")
+        print("="*80 + "\n")
+    
         # Excluir FAMID del SET ya que no se debe actualizar la clave primaria
         update_fields = [f for f in Socio._fields if f != 'FAMID']
         update_pairs = ', '.join([f"{col} = ?" for col in update_fields])
         query = f"UPDATE scazorla_sa.G_Socis SET {update_pairs} WHERE FAMID = ?"
+    
+        print(f"Query: {query}\n")
+    
         try:
             with self.conn.cursor() as cursor:
                 # Excluir el primer elemento (FAMID) de data y agregar FAMID al final para el WHERE
                 ordered_data = data[1:] + (fam_id,)
+            
+                print("Datos ordenados para query:")
+                for i, val in enumerate(ordered_data):
+                    print(f"  ?{i+1} = {val!r} (tipo: {type(val).__name__})")
+                print()
+            
                 cursor.execute(query, ordered_data)
                 self.conn.commit()
             return True
@@ -126,15 +188,16 @@ class DatabaseModel:
             return False
 
     def delete_socio(self, fam_id):
-        """Elimina un socio de la base de datos."""
-        query = "DELETE FROM scazorla_sa.G_Socis WHERE FAMID = ?"
+        """Da de baja un socio (marca bBaixa = True y establece fecha de baja)."""
+        from datetime import datetime
+        query = "UPDATE scazorla_sa.G_Socis SET bBaixa = ?, FAMDataBaixa = ? WHERE FAMID = ?"
         try:
             with self.conn.cursor() as cursor:
-                cursor.execute(query, fam_id)
+                cursor.execute(query, (True, datetime.now(), fam_id))
                 self.conn.commit()
             return True
         except pyodbc.Error as ex:
-            print(f"Error al eliminar socio: {ex}")
+            print(f"Error al dar de baja socio: {ex}")
             return False
 
     def update_dades(self, data):

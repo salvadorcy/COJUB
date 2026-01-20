@@ -16,7 +16,8 @@ Socio = namedtuple('Socio', [
     'FAMObservacions', 'FAMNIF',
     'FAMDataNaixement', 'FAMQuota', 'FAMDataBaixa',
     'FAMSexe', 'FAMSociReferencia',
-    'FAMbPagamentDomiciliat', 'FAMbRebutCobrat', 'FAMPagamentFinestreta', 'bBaixa'
+    'FAMbPagamentDomiciliat', 'FAMbRebutCobrat', 'FAMPagamentFinestreta', 'bBaixa',
+    'FAMTelefonEmergencia'
 ])
 
 Dades = namedtuple('Dades', [

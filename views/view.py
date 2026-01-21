@@ -5,7 +5,7 @@ from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtCore import QUrl
 from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget, QTableWidgetItem, QLabel, QLineEdit, QFormLayout, QDialog, QMessageBox, QCheckBox, QGroupBox, QFileDialog, QDateEdit, QTextEdit, QCompleter
 from PyQt6.QtCore import Qt
-from PyQt6.QtCore import QSize, Qt
+from PyQt6.QtCore import QSize, Qt, QTimer
 from PyQt6.QtGui import QColor, QFont, QDesktopServices
 from PyQt6.QtCore import QUrl
 from datetime import datetime
@@ -38,11 +38,11 @@ class SocioDialog(QDialog):
             ("FAMCodPos", QLineEdit(), "Codi Postal"),
             ("FAMTelefon", QLineEdit(), "Telèfon"),
             ("FAMMobil", QLineEdit(), "Mòbil"),
-            ("FAMTelefonEmergencia", QLineEdit(), "Telèfon Emergència"),
             ("FAMEmail", QLineEdit(), "Correu electrònic"),
             ("FAMDataAlta", QLineEdit(), "Data Alta (YYYY-MM-DD)"),
             ("FAMIBAN", QLineEdit(), "IBAN"),
             ("FAMBIC", QLineEdit(), "BIC"),
+            ("bBaixa", QCheckBox(), "Baixa"),
             ("FAMObservacions", QTextEdit(), "Observacions"),
             ("FAMNIF", QLineEdit(), "NIF"),
             ("FAMDataNaixement", QLineEdit(), "Data Naixement (YYYY-MM-DD)"),
@@ -53,7 +53,7 @@ class SocioDialog(QDialog):
             ("FAMbPagamentDomiciliat", QCheckBox(), "Pagament Domiciliat"),
             ("FAMbRebutCobrat", QCheckBox(), "Rebut Cobrat"),
             ("FAMPagamentFinestreta", QCheckBox(), "Pagament Finestreta"),
-            ("bBaixa", QCheckBox(), "Baixa")
+            ("FAMTelefonEmergencia", QLineEdit(), "Telèfon Emergència")
         ]
 
         for attr, widget, label_text in fields_config:
@@ -259,12 +259,29 @@ class SocioDialog(QDialog):
             # ORDEN DE CAMPOS - 22 campos (DEBE COINCIDIR CON model.py)
             # ============================================================================
             ordered_keys = [
-                "FAMID", "FAMNom", "FAMAdressa", "FAMPoblacio", "FAMCodPos",
-                "FAMTelefon", "FAMMobil", "FAMTelefonEmergencia", "FAMEmail", "FAMDataAlta", "FAMIBAN",
-                "FAMBIC", "FAMObservacions", "FAMNIF", "FAMDataNaixement",
-                "FAMQuota", "FAMDataBaixa", "FAMSexe", "FAMSociReferencia",
-                "FAMbPagamentDomiciliat", "FAMbRebutCobrat", "FAMPagamentFinestreta",
-                "bBaixa"
+                "FAMID",
+                "FAMNom",
+                "FAMAdressa",
+                "FAMPoblacio",
+                "FAMCodPos",
+                "FAMTelefon",
+                "FAMMobil",
+                "FAMEmail",
+                "FAMDataAlta",
+                "FAMIBAN",
+                "FAMBIC",
+                "bBaixa",
+                "FAMObservacions",
+                "FAMNIF",
+                "FAMDataNaixement",
+                "FAMQuota",
+                "FAMDataBaixa",
+                "FAMSexe",
+                "FAMSociReferencia",
+                "FAMbPagamentDomiciliat",
+                "FAMbRebutCobrat",
+                "FAMPagamentFinestreta",
+                "FAMTelefonEmergencia"
             ]
 
             # Rellenar los campos con los datos del socio
@@ -280,8 +297,16 @@ class SocioDialog(QDialog):
                                 widget.setText(value.strftime('%Y-%m-%d'))
                             else:
                                 widget.setText("")
+                        elif key == "FAMQuota":
+                            if value is not None and value != "":
+                                widget.setText(str(value))
+                            else:
+                                widget.setText("")
+                        # Otros campos de texto (incluyendo FAMSociReferencia)
                         else:
-                            widget.setText(str(value) if value is not None else "")
+                            # Limpiar espacios en blanco
+                            text_value = str(value).strip() if value is not None else ""
+                            widget.setText(text_value)
                     elif isinstance(widget, QTextEdit):  # ← AÑADIR ESTO
                         widget.setPlainText(str(value) if value is not None else "")
                     elif isinstance(widget, QCheckBox):
@@ -291,15 +316,41 @@ class SocioDialog(QDialog):
             nuevo_id = self.calcular_nuevo_id()
             self.fields["FAMID"].setText(nuevo_id)
             self.fields["FAMID"].setEnabled(False)
-            
+    
             # Establecer fecha de alta por defecto a hoy
             self.fields["FAMDataAlta"].setText(datetime.now().strftime('%Y-%m-%d'))
-            
+    
             # Establecer bBaixa a False por defecto
             self.fields["bBaixa"].setChecked(False)
 
-        if self.socio_data and "FAMSociReferencia" in self.fields:
-            self.actualizar_nombre_parella()
+        # ============================================================================
+        # ACTUALIZAR NOMBRE DE SOCIO PAREJA (tanto en modo edición como nuevo)
+        # ============================================================================
+        # Usar QTimer para asegurar que se ejecuta después de que todo esté cargado        
+        QTimer.singleShot(100, self.actualizar_nombre_parella)
+
+
+        print("\n=== DEBUG FILL_FORM ===")
+        print(f"Modo edición: {self.socio_data is not None}")
+        if self.socio_data:
+            print(f"Total campos en socio_data: {len(self.socio_data)}")
+            # Buscar índice de FAMSociReferencia
+            ordered_keys_temp = [
+                "FAMID", "FAMNom", "FAMAdressa", "FAMPoblacio", "FAMCodPos",
+                "FAMTelefon", "FAMMobil", "FAMTelefonEmergencia", "FAMEmail", "FAMDataAlta", "FAMIBAN",
+                "FAMBIC", "FAMObservacions", "FAMNIF", "FAMDataNaixement",
+                "FAMQuota", "FAMDataBaixa", "FAMSexe", "FAMSociReferencia",
+                "FAMbPagamentDomiciliat", "FAMbRebutCobrat", "FAMPagamentFinestreta",
+                "bBaixa"
+            ]
+            idx = ordered_keys_temp.index("FAMSociReferencia") if "FAMSociReferencia" in ordered_keys_temp else -1
+            print(f"Índice FAMSociReferencia: {idx}")
+            if idx >= 0 and idx < len(self.socio_data):
+                print(f"Valor FAMSociReferencia: '{self.socio_data[idx]}'")
+    
+            valor_campo = self.fields["FAMSociReferencia"].text()
+            print(f"Valor en campo después de fill: '{valor_campo}'")
+        print("=======================\n")
 
     def get_data(self):
         """Devuelve los datos del formulario como una tupla."""
@@ -311,12 +362,29 @@ class SocioDialog(QDialog):
         # ORDEN DE CAMPOS - 23 campos (DEBE COINCIDIR CON model.py)
         # ============================================================================
         ordered_keys = [
-            "FAMID", "FAMNom", "FAMAdressa", "FAMPoblacio", "FAMCodPos",
-            "FAMTelefon", "FAMMobil", "FAMTelefonEmergencia", "FAMEmail", "FAMDataAlta", "FAMIBAN",
-            "FAMBIC", "FAMObservacions", "FAMNIF", "FAMDataNaixement",
-            "FAMQuota", "FAMDataBaixa", "FAMSexe", "FAMSociReferencia",
-            "FAMbPagamentDomiciliat", "FAMbRebutCobrat", "FAMPagamentFinestreta",
-            "bBaixa"
+            "FAMID",
+            "FAMNom",
+            "FAMAdressa",
+            "FAMPoblacio",
+            "FAMCodPos",
+            "FAMTelefon",
+            "FAMMobil",
+            "FAMEmail",
+            "FAMDataAlta",
+            "FAMIBAN",
+            "FAMBIC",
+            "bBaixa",
+            "FAMObservacions",
+            "FAMNIF",
+            "FAMDataNaixement",
+            "FAMQuota",
+            "FAMDataBaixa",
+            "FAMSexe",
+            "FAMSociReferencia",
+            "FAMbPagamentDomiciliat",
+            "FAMbRebutCobrat",
+            "FAMPagamentFinestreta",
+            "FAMTelefonEmergencia"
         ]
     
         for key in ordered_keys:
@@ -711,19 +779,27 @@ class MainWindow(QMainWindow):
                 QMessageBox.critical(self, "Error", "No s'ha pogut afegir el soci.")
     
     def edit_socio(self):
-        """Abre el diálogo para editar el socio seleccionado."""
-        socio_data = self.view_model.get_selected_socio_data()
-        if not socio_data:
-            QMessageBox.warning(self, "Advertència", "Si us plau, selecciona un soci per editar.")
+        """Edita el socio seleccionado."""
+        selected_row = self.table.currentRow()
+        if selected_row < 0:
+            QMessageBox.warning(self, "Avís", "Si us plau, selecciona un soci.")
             return
-
-        dialog = SocioDialog(self, socio_data, todos_socis=self.view_model.all_socis)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            updated_data = dialog.get_data()
-            if self.view_model.save_socio(updated_data):
-                QMessageBox.information(self, "Èxit", "Soci actualitzat correctament.")
-            else:
-                QMessageBox.critical(self, "Error", "No s'ha pogut actualitzar el soci.")
+    
+        self.view_model.set_selected_socio(selected_row)
+        socio_data = self.view_model.get_selected_socio_data()
+    
+        if socio_data:
+            dialog = SocioDialog(self, socio_data, todos_socis=self.view_model.all_socis)
+        
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                new_data = dialog.get_data()
+                success = self.view_model.save_socio(new_data)
+            
+                if success:
+                    QMessageBox.information(self, "Èxit", "Soci actualitzat correctament.")
+                    self.refresh_table()
+                else:
+                    QMessageBox.critical(self, "Error", "No s'ha pogut actualitzar el soci.")
                 
     def delete_socio(self):
         """Elimina el socio seleccionado."""

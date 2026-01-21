@@ -11,12 +11,28 @@ from .etiquetas_generator import generar_etiquetas_socios
 # ESTRUCTURA CORREGIDA - 22 campos (DEBE COINCIDIR CON model.py)
 # ============================================================================
 Socio = namedtuple('Socio', [
-    'FAMID', 'FAMNom', 'FAMAdressa', 'FAMPoblacio', 'FAMCodPos', 'FAMTelefon',
-    'FAMMobil', 'FAMEmail', 'FAMDataAlta', 'FAMIBAN', 'FAMBIC',
-    'FAMObservacions', 'FAMNIF',
-    'FAMDataNaixement', 'FAMQuota', 'FAMDataBaixa',
-    'FAMSexe', 'FAMSociReferencia',
-    'FAMbPagamentDomiciliat', 'FAMbRebutCobrat', 'FAMPagamentFinestreta', 'bBaixa',
+    'FAMID',
+    'FAMNom',
+    'FAMAdressa',
+    'FAMPoblacio',
+    'FAMCodPos',
+    'FAMTelefon',
+    'FAMMobil',
+    'FAMEmail',
+    'FAMDataAlta',
+    'FAMIBAN',
+    'FAMBIC',
+    'bBaixa',
+    'FAMObservacions',
+    'FAMNIF',
+    'FAMDataNaixement',
+    'FAMQuota',
+    'FAMDataBaixa',
+    'FAMSexe',
+    'FAMSociReferencia',
+    'FAMbPagamentDomiciliat',
+    'FAMbRebutCobrat',
+    'FAMPagamentFinestreta',
     'FAMTelefonEmergencia'
 ])
 
@@ -119,17 +135,26 @@ class ViewModel(QObject):
 
     def save_socio(self, data):
         """Guarda o actualiza un socio en la base de datos."""
-        # Se asume que el primer elemento de la tupla es el FAMID
         fam_id = data[0]
-        # Si el FAMID existe, es una actualización
+    
         if self.model.socio_exists(fam_id):
             success = self.model.update_socio(data)
-        # Si no, es una nueva inserción
         else:
             success = self.model.add_socio(data)
-        
+    
         if success:
+            # DEBUG: Verificar datos ANTES de recargar
+            socio_antes = next((s for s in self.all_socis if s.FAMID.strip() == fam_id.strip()), None)
+            if socio_antes:
+                print(f"🔹 ANTES de load_data() - FAMNIF: '{socio_antes.FAMNIF}'")
+        
             self.load_data()  # Recargar datos después de guardar
+        
+            # DEBUG: Verificar datos DESPUÉS de recargar
+            socio_despues = next((s for s in self.all_socis if s.FAMID.strip() == fam_id.strip()), None)
+            if socio_despues:
+                print(f"🔹 DESPUÉS de load_data() - FAMNIF: '{socio_despues.FAMNIF}'")
+        
         return success
             
     def delete_selected_socio(self):

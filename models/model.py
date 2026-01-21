@@ -14,13 +14,29 @@ from collections import namedtuple
 #])
 
 Socio = namedtuple('Socio', [
-    'FAMID', 'FAMNom', 'FAMAdressa', 'FAMPoblacio', 'FAMCodPos', 'FAMTelefon',
-    'FAMMobil', 'FAMEmail', 'FAMDataAlta', 'FAMIBAN', 'FAMBIC',
-    'FAMObservacions', 'FAMNIF',
-    'FAMDataNaixement', 'FAMQuota', 'FAMDataBaixa',
-    'FAMSexe', 'FAMSociReferencia',
-    'FAMbPagamentDomiciliat', 'FAMbRebutCobrat', 'FAMPagamentFinestreta', 'bBaixa',
-    'FAMTelefonEmergencia'
+    'FAMID',                    # 1
+    'FAMNom',                   # 2
+    'FAMAdressa',               # 3
+    'FAMPoblacio',              # 4
+    'FAMCodPos',                # 5
+    'FAMTelefon',               # 6
+    'FAMMobil',                 # 7
+    'FAMEmail',                 # 8
+    'FAMDataAlta',              # 9
+    'FAMIBAN',                  # 11 (saltamos FAMCCC que está en pos 10)
+    'FAMBIC',                   # 12
+    'bBaixa',                   # 14 (saltamos FAMNSocis en pos 13)
+    'FAMObservacions',          # 15
+    'FAMNIF',                   # 17 (saltamos FAMbSeccio en pos 16)
+    'FAMDataNaixement',         # 18
+    'FAMQuota',                 # 19
+    'FAMDataBaixa',             # 21 (saltamos FAMIDSec en pos 20)
+    'FAMSexe',                  # 23 (saltamos FAMTipus en pos 22)
+    'FAMSociReferencia',        # 24
+    'FAMbPagamentDomiciliat',   # 27 (saltamos FAMNewId y FAMNewIdRef)
+    'FAMbRebutCobrat',          # 28
+    'FAMPagamentFinestreta',    # 29
+    'FAMTelefonEmergencia'      # 30
 ])
 
 Dades = namedtuple('Dades', [
@@ -66,9 +82,30 @@ class DatabaseModel:
     def get_all_socis(self):
         """Recupera todos los socios de la base de datos."""
         query = """
-            SELECT FAMID,FAMNom,FAMAdressa,FAMPoblacio,FAMCodPos,FAMTelefon,FAMMobil,FAMEmail,FAMDataAlta,FAMIBAN,FAMBIC,
-                FAMObservacions,FAMNIF,FAMDataNaixement,FAMQuota,FAMDataBaixa,FAMSexe,FAMSociReferencia,
-                FAMbPagamentDomiciliat,FAMbRebutCobrat,FAMPagamentFinestreta,bBaixa,FAMTelefonEmergencia 
+            SELECT 
+                FAMID,
+                FAMNom,
+                FAMAdressa,
+                FAMPoblacio,
+                FAMCodPos,
+                FAMTelefon,
+                FAMMobil,
+                FAMEmail,
+                FAMDataAlta,
+                FAMIBAN,
+                FAMBIC,
+                bBaixa,
+                FAMObservacions,
+                FAMNIF,
+                FAMDataNaixement,
+                FAMQuota,
+                FAMDataBaixa,
+                FAMSexe,
+                FAMSociReferencia,
+                FAMbPagamentDomiciliat,
+                FAMbRebutCobrat,
+                FAMPagamentFinestreta,
+                FAMTelefonEmergencia
             FROM scazorla_sa.G_Socis
         """
         with self.conn.cursor() as cursor:
@@ -162,6 +199,12 @@ class DatabaseModel:
         for i, (field_name, value) in enumerate(zip(Socio._fields, data)):
             print(f"{i:2d}. {field_name:25s} = {value!r:40s} (tipo: {type(value).__name__})")
         print("="*80 + "\n")
+
+        # Después de imprimir "DEBUG - DATOS LIMPIADOS:", añadir:
+        print(f"\n🔍 DEBUG ESPECÍFICO NIF:")
+        print(f"   Índice FAMNIF en Socio._fields: {Socio._fields.index('FAMNIF') if 'FAMNIF' in Socio._fields else 'NO ENCONTRADO'}")
+        print(f"   Valor FAMNIF en data: '{data[13]}' (posición 13)")
+        print(f"   Tipo: {type(data[13])}")
     
         # Excluir FAMID del SET ya que no se debe actualizar la clave primaria
         update_fields = [f for f in Socio._fields if f != 'FAMID']

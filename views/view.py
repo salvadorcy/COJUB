@@ -3,7 +3,7 @@ import os
 import platform
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtCore import QUrl
-from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget, QTableWidgetItem, QLabel, QLineEdit, QFormLayout, QDialog, QMessageBox, QCheckBox, QGroupBox, QFileDialog, QDateEdit, QTextEdit, QCompleter
+from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget, QTableWidgetItem, QLabel, QLineEdit, QFormLayout, QDialog, QMessageBox, QCheckBox, QGroupBox, QFileDialog, QDateEdit, QTextEdit, QCompleter, QScrollArea
 from PyQt6.QtCore import Qt
 from PyQt6.QtCore import QSize, Qt, QTimer
 from PyQt6.QtGui import QColor, QFont, QDesktopServices
@@ -12,64 +12,118 @@ from datetime import datetime
 from .style_config import STYLE_CONFIG
 import platform
 
-
 class SocioDialog(QDialog):
-    
     """Diálogo para agregar o editar un socio."""
     def __init__(self, parent=None, socio=None, todos_socis=None):
         super().__init__(parent)
         self.setWindowTitle("Edita Soci" if socio else "Afegeix Soci")
-        self.setGeometry(100, 100, 650, 600)
+        self.setGeometry(100, 100, 1000, 650)  # Más ancho para 2 columnas
         self.socio_data = socio
         self.todos_socis = todos_socis if todos_socis else []
 
-        self.layout = QVBoxLayout(self)
-        self.form_layout = QFormLayout()
+        # Layout principal
+        main_layout = QVBoxLayout(self)
+        
+        # ====================================================================
+        # SCROLL AREA
+        # ====================================================================
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll_content = QWidget()
+        scroll_layout = QVBoxLayout(scroll_content)
         
         self.fields = {}
-        # ============================================================================
-        # CAMPOS SIMPLIFICADOS - 22 campos (coincide con model.py)
-        # ============================================================================
-        fields_config = [
-            ("FAMID", QLineEdit(), "ID"),
-            ("FAMNom", QLineEdit(), "Nom"),
-            ("FAMAdressa", QLineEdit(), "Adreça"),
-            ("FAMPoblacio", QLineEdit(), "Població"),
-            ("FAMCodPos", QLineEdit(), "Codi Postal"),
-            ("FAMTelefon", QLineEdit(), "Telèfon"),
-            ("FAMMobil", QLineEdit(), "Mòbil"),
-            ("FAMEmail", QLineEdit(), "Correu electrònic"),
-            ("FAMDataAlta", QLineEdit(), "Data Alta (YYYY-MM-DD)"),
-            ("FAMIBAN", QLineEdit(), "IBAN"),
-            ("FAMBIC", QLineEdit(), "BIC"),
-            ("bBaixa", QCheckBox(), "Baixa"),
-            ("FAMObservacions", QTextEdit(), "Observacions"),
-            ("FAMNIF", QLineEdit(), "NIF"),
-            ("FAMDataNaixement", QLineEdit(), "Data Naixement (YYYY-MM-DD)"),
-            ("FAMQuota", QLineEdit(), "Quota"),
-            ("FAMDataBaixa", QLineEdit(), "Data Baixa (YYYY-MM-DD)"),
-            ("FAMSexe", QLineEdit(), "Sexe (H/M)"),
-            ("FAMSociReferencia", QLineEdit(), "Soci Parella"),
-            ("FAMbPagamentDomiciliat", QCheckBox(), "Pagament Domiciliat"),
-            ("FAMbRebutCobrat", QCheckBox(), "Rebut Cobrat"),
-            ("FAMPagamentFinestreta", QCheckBox(), "Pagament Finestreta"),
-            ("FAMTelefonEmergencia", QLineEdit(), "Telèfon Emergència")
-        ]
-
-        for attr, widget, label_text in fields_config:
-            if isinstance(widget, QCheckBox):
-                self.fields[attr] = widget
-                widget.setText(label_text)
-                self.form_layout.addRow(widget)
-            else:
-                self.fields[attr] = widget
-                # Configurar altura para QTextEdit
-                if isinstance(widget, QTextEdit):
-                    widget.setMinimumHeight(100)  # Altura mínima en píxeles
-                    widget.setMaximumHeight(150)  # Altura máxima en píxeles
-                self.form_layout.addRow(label_text, widget)
-
-        # Crear label para mostrar el nombre del socio pareja
+        
+        # ====================================================================
+        # LAYOUT DE 2 COLUMNAS
+        # ====================================================================
+        columns_layout = QHBoxLayout()
+        
+        # ====================================================================
+        # COLUMNA IZQUIERDA - Datos Personales
+        # ====================================================================
+        left_group = QGroupBox("Dades Personals")
+        left_form = QFormLayout()
+        left_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+        
+        # ID
+        self.fields["FAMID"] = QLineEdit()
+        self.fields["FAMID"].setReadOnly(True)
+        self.fields["FAMID"].setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.fields["FAMID"].setEnabled(False)
+        self.fields["FAMID"].setStyleSheet("QLineEdit:disabled { background-color: #f0f0f0; color: #666666; border: 1px solid #cccccc; }")
+        left_form.addRow("ID", self.fields["FAMID"])
+        
+        # NIF
+        self.fields["FAMNIF"] = QLineEdit()
+        left_form.addRow("NIF", self.fields["FAMNIF"])
+        
+        # Nom
+        self.fields["FAMNom"] = QLineEdit()
+        left_form.addRow("Nom", self.fields["FAMNom"])
+        
+        # Adreça
+        self.fields["FAMAdressa"] = QLineEdit()
+        left_form.addRow("Adreça", self.fields["FAMAdressa"])
+        
+        # Població
+        self.fields["FAMPoblacio"] = QLineEdit()
+        left_form.addRow("Població", self.fields["FAMPoblacio"])
+        
+        # Codi Postal
+        self.fields["FAMCodPos"] = QLineEdit()
+        left_form.addRow("Codi Postal", self.fields["FAMCodPos"])
+        
+        # Telèfon
+        self.fields["FAMTelefon"] = QLineEdit()
+        left_form.addRow("Telèfon", self.fields["FAMTelefon"])
+        
+        # Mòbil
+        self.fields["FAMMobil"] = QLineEdit()
+        left_form.addRow("Mòbil", self.fields["FAMMobil"])
+        
+        # Correu electrònic
+        self.fields["FAMEmail"] = QLineEdit()
+        left_form.addRow("Correu electrònic", self.fields["FAMEmail"])
+        
+        # Telèfon Emergència
+        self.fields["FAMTelefonEmergencia"] = QLineEdit()
+        left_form.addRow("Telèfon Emergència", self.fields["FAMTelefonEmergencia"])
+        
+        # Data Naixement
+        self.fields["FAMDataNaixement"] = QLineEdit()
+        left_form.addRow("Data Naixement (YYYY-MM-DD)", self.fields["FAMDataNaixement"])
+        
+        left_group.setLayout(left_form)
+        
+        # ====================================================================
+        # COLUMNA DERECHA - Datos Administrativos
+        # ====================================================================
+        right_group = QGroupBox("Dades Administratives")
+        right_form = QFormLayout()
+        right_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+        
+        # Data Alta
+        self.fields["FAMDataAlta"] = QLineEdit()
+        right_form.addRow("Data Alta (YYYY-MM-DD)", self.fields["FAMDataAlta"])
+        
+        # IBAN
+        self.fields["FAMIBAN"] = QLineEdit()
+        right_form.addRow("IBAN", self.fields["FAMIBAN"])
+        
+        # BIC
+        self.fields["FAMBIC"] = QLineEdit()
+        right_form.addRow("BIC", self.fields["FAMBIC"])
+        
+        # Sexe
+        self.fields["FAMSexe"] = QLineEdit()
+        right_form.addRow("Sexe (H/M)", self.fields["FAMSexe"])
+        
+        # Soci Parella
+        self.fields["FAMSociReferencia"] = QLineEdit()
+        right_form.addRow("Soci Parella", self.fields["FAMSociReferencia"])
+        
+        # Label para nombre de pareja
         self.label_parella_nom = QLabel("")
         self.label_parella_nom.setStyleSheet("""
             QLabel {
@@ -82,86 +136,126 @@ class SocioDialog(QDialog):
             }
         """)
         self.label_parella_nom.setMinimumHeight(25)
-
-        # ============================================================================
-        # LÍMITES DE CARACTERES SEGÚN BASE DE DATOS
-        # ============================================================================
-
-        # Campos CHAR(5)
-        self.fields["FAMID"].setMaxLength(5)              # char(5)
-        self.fields["FAMCodPos"].setMaxLength(5)          # char(5)
-        self.fields["FAMSociReferencia"].setMaxLength(255)  # char(5)
-
-        # Campos CHAR(1)
-        self.fields["FAMSexe"].setMaxLength(1)            # char(1)
-
-        # Campos NVARCHAR
-        self.fields["FAMNom"].setMaxLength(255)           # nvarchar(255)
-        self.fields["FAMAdressa"].setMaxLength(255)       # nvarchar(255)
-        self.fields["FAMPoblacio"].setMaxLength(255)      # nvarchar(255)
-        self.fields["FAMTelefon"].setMaxLength(20)        # nvarchar(20)
-        self.fields["FAMMobil"].setMaxLength(20)          # nvarchar(20)
-        self.fields["FAMTelefonEmergencia"].setMaxLength(150)
+        right_form.addRow("", self.label_parella_nom)
         
-        parella_row = None
-        for i in range(self.form_layout.rowCount()):
-            label_item = self.form_layout.itemAt(i, QFormLayout.ItemRole.LabelRole)
-            if label_item and label_item.widget():
-                if label_item.widget().text() == "Soci Parella":
-                    parella_row = i
-                    break
+        # Botón crear socio pareja
+        self.btn_crear_parella = QPushButton("➕ Crear Nou Soci Parella")
+        self.btn_crear_parella.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                font-weight: bold;
+                padding: 5px 10px;
+                border-radius: 3px;
+                border: none;
+            }
+            QPushButton:hover { background-color: #45a049; }
+        """)
+        self.btn_crear_parella.setMaximumWidth(200)
+        self.btn_crear_parella.clicked.connect(self.crear_nuevo_socio_parella)
+        self.btn_crear_parella.hide()
+        right_form.addRow("", self.btn_crear_parella)
+        
+        # Quota
+        self.fields["FAMQuota"] = QLineEdit()
+        right_form.addRow("Quota", self.fields["FAMQuota"])
+        
+        # Observacions
+        self.fields["FAMObservacions"] = QTextEdit()
+        self.fields["FAMObservacions"].setMinimumHeight(80)
+        self.fields["FAMObservacions"].setMaximumHeight(120)
+        right_form.addRow("Observacions", self.fields["FAMObservacions"])
+        
+        right_group.setLayout(right_form)
+        
+        # Añadir columnas al layout
+        columns_layout.addWidget(left_group)
+        columns_layout.addWidget(right_group)
+        scroll_layout.addLayout(columns_layout)
+        
+        # ====================================================================
+        # SECCIÓN INFERIOR - Data Baixa y Checkboxes
+        # ====================================================================
+        bottom_layout = QHBoxLayout()
+        
+        # Data Baixa (condicional)
+        baixa_group = QGroupBox("Data de Baixa")
+        baixa_form = QFormLayout()
+        self.fields["FAMDataBaixa"] = QLineEdit()
+        self.fields["FAMDataBaixa"].setReadOnly(True)
+        baixa_form.addRow("Data Baixa (YYYY-MM-DD)", self.fields["FAMDataBaixa"])
+        baixa_group.setLayout(baixa_form)
+        self.baixa_container = baixa_group
+        self.baixa_container.hide()  # Oculto por defecto
+        
+        # Checkboxes
+        checkboxes_group = QGroupBox("Opcions")
+        checkboxes_layout = QVBoxLayout()
+        
+        self.fields["bBaixa"] = QCheckBox("Baixa")
+        self.fields["FAMbPagamentDomiciliat"] = QCheckBox("Pagament Domiciliat")
+        self.fields["FAMbRebutCobrat"] = QCheckBox("Rebut Cobrat")
+        self.fields["FAMPagamentFinestreta"] = QCheckBox("Pagament Finestreta")
+        
+        checkboxes_layout.addWidget(self.fields["bBaixa"])
+        checkboxes_layout.addWidget(self.fields["FAMbPagamentDomiciliat"])
+        checkboxes_layout.addWidget(self.fields["FAMbRebutCobrat"])
+        checkboxes_layout.addWidget(self.fields["FAMPagamentFinestreta"])
+        checkboxes_group.setLayout(checkboxes_layout)
+        
+        bottom_layout.addWidget(self.baixa_container)
+        bottom_layout.addWidget(checkboxes_group)
+        scroll_layout.addLayout(bottom_layout)
+        
+        # Configurar scroll
+        scroll.setWidget(scroll_content)
+        main_layout.addWidget(scroll)
+        
+        # ====================================================================
+        # BOTONES
+        # ====================================================================
+        buttons_layout = QHBoxLayout()
+        self.save_button = QPushButton("Desa")
+        self.cancel_button = QPushButton("Cancel·la")
+        buttons_layout.addWidget(self.save_button)
+        buttons_layout.addWidget(self.cancel_button)
+        main_layout.addLayout(buttons_layout)
 
-        if parella_row is not None:
-            # Insertar label debajo del campo
-            self.form_layout.insertRow(parella_row + 1, "", self.label_parella_nom)
-
-        # Configurar autocompletado
-        if self.todos_socis:
-            # Crear lista de sugerencias: "ID - Nombre"
-            sugerencias = [f"{socio.FAMID.strip()} - {socio.FAMNom}" for socio in self.todos_socis]
-    
-            completer = QCompleter(sugerencias)
-            completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-            completer.setFilterMode(Qt.MatchFlag.MatchContains)
-    
-            self.fields["FAMSociReferencia"].setCompleter(completer)
-    
-            # Conectar evento para actualizar el nombre cuando cambie el ID
-            self.fields["FAMSociReferencia"].textChanged.connect(self.actualizar_nombre_parella)
-
-        # Crear tooltip mejorado
-        self.fields["FAMSociReferencia"].setToolTip(
-            "Escriu l'ID del soci parella o comença a escriure el nom per cercar.\n"
-            "Exemples: 1001 o 'JUAN'"
-        )
-        self.fields["FAMEmail"].setMaxLength(100)         # nvarchar(100)
-        self.fields["FAMIBAN"].setMaxLength(24)           # nvarchar(24)
-        self.fields["FAMBIC"].setMaxLength(15)            # nvarchar(15)
-        self.fields["FAMNIF"].setMaxLength(10)            # nvarchar(10)
-        #self.fields["FAMObservacions"].setMaxLength(2048) # nvarchar(2048)
-
-        def limit_observacions_length():
-            """Limita el campo Observacions a 2048 caracteres."""
-            text = self.fields["FAMObservacions"].toPlainText()
-            if len(text) > 2048:
-                # Truncar a 2048 caracteres
-                cursor = self.fields["FAMObservacions"].textCursor()
-                cursor.movePosition(cursor.MoveOperation.End)
-                cursor.deletePreviousChar()
-                self.fields["FAMObservacions"].setTextCursor(cursor)
-
-        self.fields["FAMObservacions"].textChanged.connect(limit_observacions_length)
-
-        # Campos numéricos (limitar caracteres para evitar valores excesivos)
-        self.fields["FAMQuota"].setMaxLength(12)          # numeric (ej: 999999.99)
-
+        self.save_button.clicked.connect(self.accept)
+        self.cancel_button.clicked.connect(self.reject)
+        
+        # ====================================================================
+        # CONFIGURACIÓN DE LÍMITES Y VALIDACIONES
+        # ====================================================================
+        
+        # Límites de caracteres
+        self.fields["FAMID"].setMaxLength(5)
+        self.fields["FAMNom"].setMaxLength(255)
+        self.fields["FAMAdressa"].setMaxLength(255)
+        self.fields["FAMPoblacio"].setMaxLength(255)
+        self.fields["FAMCodPos"].setMaxLength(5)
+        self.fields["FAMTelefon"].setMaxLength(20)
+        self.fields["FAMMobil"].setMaxLength(20)
+        self.fields["FAMTelefonEmergencia"].setMaxLength(150)
+        self.fields["FAMEmail"].setMaxLength(100)
+        self.fields["FAMIBAN"].setMaxLength(24)
+        self.fields["FAMBIC"].setMaxLength(15)
+        self.fields["FAMNIF"].setMaxLength(10)
+        self.fields["FAMQuota"].setMaxLength(12)
+        self.fields["FAMSexe"].setMaxLength(1)
+        self.fields["FAMSociReferencia"].setMaxLength(255)
+        
+        # Tooltips
+        self.fields["FAMSociReferencia"].setToolTip("Escriu l'ID del soci parella o comença a escriure el nom per cercar")
+        
+        # Conversión a mayúsculas
         campos_mayusculas = [
             "FAMID", "FAMNom", "FAMAdressa", "FAMPoblacio", "FAMCodPos",
-            "FAMTelefon", "FAMMobil", "FAMTelefonEmergencia",  # ← AÑADIR AQUÍ
+            "FAMTelefon", "FAMMobil", "FAMTelefonEmergencia",
             "FAMIBAN", "FAMBIC", "FAMObservacions",
             "FAMNIF", "FAMSexe", "FAMSociReferencia"
         ]
-
+        
         for campo in campos_mayusculas:
             if campo in self.fields:
                 if isinstance(self.fields[campo], QLineEdit):
@@ -171,65 +265,61 @@ class SocioDialog(QDialog):
                 elif isinstance(self.fields[campo], QTextEdit):
                     def make_uppercase_handler(field):
                         def handler():
-                            # Bloquear señales para evitar recursión
                             field.blockSignals(True)
                             cursor_position = field.textCursor().position()
                             text = field.toPlainText()
                             field.setPlainText(text.upper())
-                            # Restaurar posición del cursor
                             cursor = field.textCursor()
                             cursor.setPosition(min(cursor_position, len(text)))
                             field.setTextCursor(cursor)
                             field.blockSignals(False)
                         return handler
                     self.fields[campo].textChanged.connect(make_uppercase_handler(self.fields[campo]))
-
-        # Convertir email a minúsculas automáticamente
+        
+        # Email a minúsculas
         self.fields["FAMEmail"].textChanged.connect(
             lambda text: self.fields["FAMEmail"].setText(text.lower())
         )
         
-        # ============================================================================
-        # CONFIGURACIÓN DE CAMPOS
-        # ============================================================================
-        # Campo ID: readonly, no focusable, estilo deshabilitado
-        self.fields["FAMID"].setReadOnly(True)
-        self.fields["FAMID"].setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.fields["FAMID"].setEnabled(False)
-        self.fields["FAMID"].setStyleSheet("""
-            QLineEdit:disabled {
-                background-color: #f0f0f0;
-                color: #666666;
-                border: 1px solid #cccccc;
-            }
-        """)
+        # Límite de Observacions
+        def limit_observacions_length():
+            field = self.fields["FAMObservacions"]
+            text = field.toPlainText()
+            if len(text) > 2048:
+                field.blockSignals(True)
+                cursor = field.textCursor()
+                cursor_pos = cursor.position()
+                field.setPlainText(text[:2048])
+                cursor.setPosition(min(cursor_pos, 2048))
+                field.setTextCursor(cursor)
+                field.blockSignals(False)
         
-        # Campos de texto largos
-        self.fields["FAMNom"].setMinimumWidth(300)
-        self.fields["FAMAdressa"].setMinimumWidth(300)
-        self.fields["FAMObservacions"].setMinimumWidth(300)
+        self.fields["FAMObservacions"].textChanged.connect(limit_observacions_length)
         
-        # Campo de baja: readonly
-        self.fields["FAMDataBaixa"].setReadOnly(True)
-
-        self.layout.addLayout(self.form_layout)
-
-        self.buttons_layout = QHBoxLayout()
-        self.save_button = QPushButton("Desa")
-        self.cancel_button = QPushButton("Cancel·la")
-        self.buttons_layout.addWidget(self.save_button)
-        self.buttons_layout.addWidget(self.cancel_button)
-        self.layout.addLayout(self.buttons_layout)
-
-        self.save_button.clicked.connect(self.accept)
-        self.cancel_button.clicked.connect(self.reject)
-
+        # Autocompletado Soci Parella
+        if self.todos_socis:
+            sugerencias = [f"{socio.FAMID.strip()} - {socio.FAMNom}" for socio in self.todos_socis]
+            completer = QCompleter(sugerencias)
+            completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+            completer.setFilterMode(Qt.MatchFlag.MatchContains)
+            self.fields["FAMSociReferencia"].setCompleter(completer)
+            self.fields["FAMSociReferencia"].textChanged.connect(self.actualizar_nombre_parella)
+        
+        # Conectar checkbox Baixa
+        self.fields["bBaixa"].stateChanged.connect(self.toggle_data_baixa)
+        
+        # Rellenar formulario
         self.fill_form()
-
+    
+    def toggle_data_baixa(self, state):
+        """Muestra u oculta el campo Data Baixa según el checkbox."""
+        if state == Qt.CheckState.Checked.value:
+            self.baixa_container.show()
+        else:
+            self.baixa_container.hide()
+    
     def calcular_nuevo_id(self):
-        """
-        Calcula automáticamente el siguiente ID disponible.
-        """
+        """Calcula automáticamente el siguiente ID disponible."""
         if not self.todos_socis:
             return "1001"
         
@@ -244,259 +334,158 @@ class SocioDialog(QDialog):
         if not ids_numericos:
             return "1001"
         
-        max_id = max(ids_numericos)
-        nuevo_id = max_id + 1
-        
-        return str(nuevo_id)
+        return str(max(ids_numericos) + 1)
     
     def fill_form(self):
         """Rellena el formulario con los datos del socio si existe."""
         if self.socio_data:
-            # Modo edición: deshabilitar campo ID
             self.fields["FAMID"].setEnabled(False)
             
-            # ============================================================================
-            # ORDEN DE CAMPOS - 22 campos (DEBE COINCIDIR CON model.py)
-            # ============================================================================
             ordered_keys = [
-                "FAMID",
-                "FAMNom",
-                "FAMAdressa",
-                "FAMPoblacio",
-                "FAMCodPos",
-                "FAMTelefon",
-                "FAMMobil",
-                "FAMEmail",
-                "FAMDataAlta",
-                "FAMIBAN",
-                "FAMBIC",
-                "bBaixa",
-                "FAMObservacions",
-                "FAMNIF",
-                "FAMDataNaixement",
-                "FAMQuota",
-                "FAMDataBaixa",
-                "FAMSexe",
-                "FAMSociReferencia",
-                "FAMbPagamentDomiciliat",
-                "FAMbRebutCobrat",
-                "FAMPagamentFinestreta",
+                "FAMID", "FAMNom", "FAMAdressa", "FAMPoblacio", "FAMCodPos",
+                "FAMTelefon", "FAMMobil", "FAMEmail", "FAMDataAlta", "FAMIBAN",
+                "FAMBIC", "bBaixa", "FAMObservacions", "FAMNIF", "FAMDataNaixement",
+                "FAMQuota", "FAMDataBaixa", "FAMSexe", "FAMSociReferencia",
+                "FAMbPagamentDomiciliat", "FAMbRebutCobrat", "FAMPagamentFinestreta",
                 "FAMTelefonEmergencia"
             ]
 
-            # Rellenar los campos con los datos del socio
             for i, key in enumerate(ordered_keys):
                 if key in self.fields and i < len(self.socio_data):
                     widget = self.fields[key]
                     value = self.socio_data[i]
                     
                     if isinstance(widget, QLineEdit):
-                        # Manejar fechas
                         if key in ["FAMDataAlta", "FAMDataNaixement", "FAMDataBaixa"]:
                             if value and isinstance(value, datetime):
                                 widget.setText(value.strftime('%Y-%m-%d'))
                             else:
                                 widget.setText("")
                         elif key == "FAMQuota":
-                            if value is not None and value != "":
-                                widget.setText(str(value))
-                            else:
-                                widget.setText("")
-                        # Otros campos de texto (incluyendo FAMSociReferencia)
+                            widget.setText(str(value) if value is not None and value != "" else "")
                         else:
-                            # Limpiar espacios en blanco
                             text_value = str(value).strip() if value is not None else ""
                             widget.setText(text_value)
-                    elif isinstance(widget, QTextEdit):  # ← AÑADIR ESTO
+                    elif isinstance(widget, QTextEdit):
                         widget.setPlainText(str(value) if value is not None else "")
                     elif isinstance(widget, QCheckBox):
                         widget.setChecked(bool(value))
         else:
-            # Modo nuevo: calcular ID automático
             nuevo_id = self.calcular_nuevo_id()
             self.fields["FAMID"].setText(nuevo_id)
             self.fields["FAMID"].setEnabled(False)
-    
-            # Establecer fecha de alta por defecto a hoy
             self.fields["FAMDataAlta"].setText(datetime.now().strftime('%Y-%m-%d'))
-    
-            # Establecer bBaixa a False por defecto
             self.fields["bBaixa"].setChecked(False)
 
-        # ============================================================================
-        # ACTUALIZAR NOMBRE DE SOCIO PAREJA (tanto en modo edición como nuevo)
-        # ============================================================================
-        # Usar QTimer para asegurar que se ejecuta después de que todo esté cargado        
         QTimer.singleShot(100, self.actualizar_nombre_parella)
-
-
-        print("\n=== DEBUG FILL_FORM ===")
-        print(f"Modo edición: {self.socio_data is not None}")
-        if self.socio_data:
-            print(f"Total campos en socio_data: {len(self.socio_data)}")
-            # Buscar índice de FAMSociReferencia
-            ordered_keys_temp = [
-                "FAMID", "FAMNom", "FAMAdressa", "FAMPoblacio", "FAMCodPos",
-                "FAMTelefon", "FAMMobil", "FAMTelefonEmergencia", "FAMEmail", "FAMDataAlta", "FAMIBAN",
-                "FAMBIC", "FAMObservacions", "FAMNIF", "FAMDataNaixement",
-                "FAMQuota", "FAMDataBaixa", "FAMSexe", "FAMSociReferencia",
-                "FAMbPagamentDomiciliat", "FAMbRebutCobrat", "FAMPagamentFinestreta",
-                "bBaixa"
-            ]
-            idx = ordered_keys_temp.index("FAMSociReferencia") if "FAMSociReferencia" in ordered_keys_temp else -1
-            print(f"Índice FAMSociReferencia: {idx}")
-            if idx >= 0 and idx < len(self.socio_data):
-                print(f"Valor FAMSociReferencia: '{self.socio_data[idx]}'")
     
-            valor_campo = self.fields["FAMSociReferencia"].text()
-            print(f"Valor en campo después de fill: '{valor_campo}'")
-        print("=======================\n")
-
     def get_data(self):
         """Devuelve los datos del formulario como una tupla."""
         from datetime import datetime
-    
         data = []
-    
-        # ============================================================================
-        # ORDEN DE CAMPOS - 23 campos (DEBE COINCIDIR CON model.py)
-        # ============================================================================
+        
         ordered_keys = [
-            "FAMID",
-            "FAMNom",
-            "FAMAdressa",
-            "FAMPoblacio",
-            "FAMCodPos",
-            "FAMTelefon",
-            "FAMMobil",
-            "FAMEmail",
-            "FAMDataAlta",
-            "FAMIBAN",
-            "FAMBIC",
-            "bBaixa",
-            "FAMObservacions",
-            "FAMNIF",
-            "FAMDataNaixement",
-            "FAMQuota",
-            "FAMDataBaixa",
-            "FAMSexe",
-            "FAMSociReferencia",
-            "FAMbPagamentDomiciliat",
-            "FAMbRebutCobrat",
-            "FAMPagamentFinestreta",
+            "FAMID", "FAMNom", "FAMAdressa", "FAMPoblacio", "FAMCodPos",
+            "FAMTelefon", "FAMMobil", "FAMEmail", "FAMDataAlta", "FAMIBAN",
+            "FAMBIC", "bBaixa", "FAMObservacions", "FAMNIF", "FAMDataNaixement",
+            "FAMQuota", "FAMDataBaixa", "FAMSexe", "FAMSociReferencia",
+            "FAMbPagamentDomiciliat", "FAMbRebutCobrat", "FAMPagamentFinestreta",
             "FAMTelefonEmergencia"
         ]
-    
+        
         for key in ordered_keys:
             if key in self.fields:
                 widget = self.fields[key]
                 value = None
-            
-                if isinstance(widget, QLineEdit):
-                    value = widget.text().strip()  # ← Limpiar espacios
                 
-                    # Convertir fechas
+                if isinstance(widget, QLineEdit):
+                    value = widget.text().strip()
                     if key in ["FAMDataAlta", "FAMDataNaixement", "FAMDataBaixa"]:
-                        if value and value != "":
-                            try:
-                                value = datetime.strptime(value, '%Y-%m-%d')
-                            except ValueError:
-                                value = None
-                        else:
-                            value = None
-                        
-                    # Convertir números (FAMQuota)
+                        value = datetime.strptime(value, '%Y-%m-%d') if value else None
                     elif key == "FAMQuota":
-                        if value and value != "":
-                            try:
-                                value_clean = value.replace(',', '.')
-                                value = float(value_clean)
-                            except (ValueError, TypeError):
-                                value = None
-                        else:
+                        try:
+                            value = float(value.replace(',', '.')) if value else None
+                        except:
                             value = None
-                        
-                    # String vacío → None para campos opcionales
                     elif value == "":
                         value = None
-                    
                 elif isinstance(widget, QTextEdit):
-                    value = widget.toPlainText().strip()
-                    if value == "":
-                        value = None
-                    
+                    value = widget.toPlainText().strip() or None
                 elif isinstance(widget, QCheckBox):
-                    value = widget.isChecked()  # Ya es bool
-            
+                    value = widget.isChecked()
+                
                 data.append(value)
-            else:
-                # Si el campo no existe en el formulario, agregar valor por defecto
-                if key == "FAMQuota":
-                    data.append(None)
-                elif key == "bBaixa":
-                    data.append(False)
-                elif key in ["FAMbPagamentDomiciliat", "FAMbRebutCobrat", "FAMPagamentFinestreta"]:
-                    data.append(False)
-                else:
-                    data.append(None)
-    
+        
         return tuple(data)
-
-    def actualizar_nombre_parella(self):
-        """Actualiza el label con el nombre del socio pareja cuando cambia el ID."""
-        id_parella = self.fields["FAMSociReferencia"].text().strip()
     
+    def actualizar_nombre_parella(self):
+        """Actualiza el label con el nombre del socio pareja."""
+        id_parella = self.fields["FAMSociReferencia"].text().strip()
+        
         if not id_parella:
             self.label_parella_nom.setText("")
+            self.btn_crear_parella.hide()
             return
-    
-        # Extraer solo el ID si se seleccionó de la lista (formato: "ID - Nombre")
+        
         if " - " in id_parella:
             id_solo = id_parella.split(" - ")[0].strip()
-        
-            # CRÍTICO: Desconectar la señal antes de modificar el texto
             self.fields["FAMSociReferencia"].textChanged.disconnect(self.actualizar_nombre_parella)
-        
-            # Actualizar el campo con solo el ID
             self.fields["FAMSociReferencia"].setText(id_solo)
-        
-            # Reconectar la señal
             self.fields["FAMSociReferencia"].textChanged.connect(self.actualizar_nombre_parella)
-        
-            # Usar el ID extraído para buscar
             id_parella = id_solo
-    
-        # Buscar el socio por ID
-        socio_encontrado = None
-        for socio in self.todos_socis:
-            if socio.FAMID.strip() == id_parella:
-                socio_encontrado = socio
-                break
-    
+        
+        socio_encontrado = next((s for s in self.todos_socis if s.FAMID.strip() == id_parella), None)
+        
         if socio_encontrado:
             self.label_parella_nom.setText(f"✓ {socio_encontrado.FAMNom}")
-            self.label_parella_nom.setStyleSheet("""
-                QLabel {
-                    color: #006600;
-                    font-weight: bold;
-                    font-size: 10pt;
-                    padding: 2px;
-                    background-color: #e8f5e9;
-                    border-radius: 3px;
-                }
-            """)
+            self.label_parella_nom.setStyleSheet("QLabel { color: #006600; font-weight: bold; font-size: 10pt; padding: 2px; background-color: #e8f5e9; border-radius: 3px; }")
+            self.btn_crear_parella.hide()
         else:
             self.label_parella_nom.setText(f"✗ ID '{id_parella}' no trobat")
-            self.label_parella_nom.setStyleSheet("""
-                QLabel {
-                    color: #cc0000;
-                    font-weight: bold;
-                    font-size: 10pt;
-                    padding: 2px;
-                    background-color: #ffebee;
-                    border-radius: 3px;
-                }
-            """)
+            self.label_parella_nom.setStyleSheet("QLabel { color: #cc0000; font-weight: bold; font-size: 10pt; padding: 2px; background-color: #ffebee; border-radius: 3px; }")
+            self.btn_crear_parella.show()
+    
+    def crear_nuevo_socio_parella(self):
+        """Abre diálogo para crear nuevo socio pareja."""
+        id_propuesto = self.fields["FAMSociReferencia"].text().strip()
+        
+        reply = QMessageBox.question(
+            self, "Crear Nou Soci",
+            f"Vols crear un nou soci amb l'ID '{id_propuesto}'?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.No:
+            return
+        
+        nuevo_socio_dialog = SocioDialog(self, None, self.todos_socis)
+        
+        if id_propuesto and len(id_propuesto) <= 5:
+            nuevo_socio_dialog.fields["FAMID"].setEnabled(True)
+            nuevo_socio_dialog.fields["FAMID"].setText(id_propuesto)
+            nuevo_socio_dialog.fields["FAMID"].setEnabled(False)
+        
+        if nuevo_socio_dialog.exec() == QDialog.DialogCode.Accepted:
+            nuevo_socio_data = nuevo_socio_dialog.get_data()
+            
+            if hasattr(self.parent(), 'view_model'):
+                view_model = self.parent().view_model
+                success = view_model.save_socio(nuevo_socio_data)
+                
+                if success:
+                    QMessageBox.information(self, "Èxit", f"Soci '{nuevo_socio_data[1]}' creat correctament.")
+                    self.todos_socis = view_model.all_socis
+                    
+                    # Actualizar autocompletador
+                    sugerencias = [f"{s.FAMID.strip()} - {s.FAMNom}" for s in self.todos_socis]
+                    completer = QCompleter(sugerencias)
+                    completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+                    completer.setFilterMode(Qt.MatchFlag.MatchContains)
+                    self.fields["FAMSociReferencia"].setCompleter(completer)
+                    
+                    self.actualizar_nombre_parella()
+                else:
+                    QMessageBox.critical(self, "Error", "No s'ha pogut crear el soci.")
 
 
 class DadesDialog(QDialog):

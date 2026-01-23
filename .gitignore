@@ -1,4 +1,7 @@
 *.pyc
 *.zip
+*.spec
 /.vs
 /__pycache__/
+/.build/
+/.dist/

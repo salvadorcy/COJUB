@@ -780,7 +780,7 @@ class MainWindow(QMainWindow):
     
     def edit_socio(self):
         """Edita el socio seleccionado."""
-        selected_row = self.table.currentRow()
+        selected_row = self.socis_table.currentRow()
         if selected_row < 0:
             QMessageBox.warning(self, "Avís", "Si us plau, selecciona un soci.")
             return

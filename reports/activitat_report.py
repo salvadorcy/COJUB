@@ -1,4 +1,4 @@
-from reportlab.lib.pagesizes import A4
+Ôªøfrom reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -50,22 +50,22 @@ def generate_activitat_report(activitat: Activitat, inscripcions: List[Activitat
     # Elementos del PDF
     elements = []
     
-    # TÌtulo
+    # T√≠tulo
     elements.append(Paragraph("Llistat d'Inscrits a l'Activitat", title_style))
     elements.append(Spacer(1, 0.3*cm))
     
-    # InformaciÛn de la actividad
+    # Informaci√≥n de la actividad
     info_text = f"""
     <b>Activitat:</b> {activitat.descripcio}<br/>
     <b>Data Inici:</b> {activitat.data_inici.strftime('%d/%m/%Y') if activitat.data_inici else 'N/A'}<br/>
     <b>Data Fi:</b> {activitat.data_fi.strftime('%d/%m/%Y') if activitat.data_fi else 'N/A'}<br/>
-    <b>Preu Soci:</b> {activitat.preu_soci:.2f} Ä<br/>
-    <b>Preu No Soci:</b> {activitat.preu_no_soci:.2f} Ä
+    <b>Preu Soci:</b> {activitat.preu_soci:.2f} ‚Ç¨<br/>
+    <b>Preu No Soci:</b> {activitat.preu_no_soci:.2f} ‚Ç¨
     """
     elements.append(Paragraph(info_text, subtitle_style))
     elements.append(Spacer(1, 0.5*cm))
     
-    # EstadÌsticas
+    # Estad√≠sticas
     total_inscrits = len(inscripcions)
     total_pagats = sum(1 for i in inscripcions if i.pagat)
     total_recaptat = sum(i.import_pagat for i in inscripcions if i.pagat and i.import_pagat)
@@ -73,7 +73,7 @@ def generate_activitat_report(activitat: Activitat, inscripcions: List[Activitat
     stats_text = f"""
     <b>Total Inscrits:</b> {total_inscrits} | 
     <b>Pagats:</b> {total_pagats} | 
-    <b>Recaptat:</b> {total_recaptat:.2f} Ä
+    <b>Recaptat:</b> {total_recaptat:.2f} ‚Ç¨
     """
     elements.append(Paragraph(stats_text, subtitle_style))
     elements.append(Spacer(1, 0.5*cm))
@@ -87,8 +87,8 @@ def generate_activitat_report(activitat: Activitat, inscripcions: List[Activitat
         for inscripcio in inscripcions:
             nom_complet = f"{inscripcio.nom_soci} {inscripcio.cognoms_soci}"
             tipus = "Soci" if inscripcio.es_soci else "No Soci"
-            import_text = f"{inscripcio.import_pagat:.2f} Ä" if inscripcio.import_pagat else ""
-            pagat_text = "SÌ" if inscripcio.pagat else "No"
+            import_text = f"{inscripcio.import_pagat:.2f} ‚Ç¨" if inscripcio.import_pagat else ""
+            pagat_text = "S√≠" if inscripcio.pagat else "No"
             
             data.append([
                 inscripcio.nif_soci,
@@ -121,7 +121,7 @@ def generate_activitat_report(activitat: Activitat, inscripcions: List[Activitat
     else:
         elements.append(Paragraph("No hi ha inscrits en aquesta activitat", subtitle_style))
     
-    # Pie de p·gina
+    # Pie de p√°gina
     elements.append(Spacer(1, 1*cm))
     footer_text = f"Generat el {datetime.now().strftime('%d/%m/%Y a les %H:%M')}"
     footer_style = ParagraphStyle('Footer', parent=styles['Normal'], 

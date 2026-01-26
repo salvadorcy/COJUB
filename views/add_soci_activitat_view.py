@@ -1,19 +1,19 @@
-from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
+ï»¿from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
                               QLineEdit, QPushButton, QComboBox, QDoubleSpinBox,
                               QLabel, QCompleter, QMessageBox)
 from PyQt6.QtCore import Qt
 from viewmodels.activitat_viewmodel import ActivitatViewModel
 from models.activitat import Activitat
-from database.db_manager import DatabaseManager
+from models.model import DatabaseModel
 
 class AddSociActivitatView(QDialog):
-    """Diálogo para añadir un socio a una actividad"""
+    """DiÃ¡logo para aÃ±adir un socio a una actividad"""
     
     def __init__(self, viewmodel: ActivitatViewModel, activitat: Activitat, parent=None):
         super().__init__(parent)
         self.viewmodel = viewmodel
         self.activitat = activitat
-        self.db_manager = viewmodel.db_manager
+        self.db_model = db_model
         
         self.setWindowTitle("Afegir Soci a l'Activitat")
         self.setMinimumWidth(400)
@@ -47,7 +47,7 @@ class AddSociActivitatView(QDialog):
         self.spin_import = QDoubleSpinBox()
         self.spin_import.setRange(0, 9999.99)
         self.spin_import.setDecimals(2)
-        self.spin_import.setSuffix(" €")
+        self.spin_import.setSuffix(" â‚¬")
         self.spin_import.setValue(self.activitat.preu_soci)
         form.addRow("Import *:", self.spin_import)
         
@@ -67,7 +67,7 @@ class AddSociActivitatView(QDialog):
         self.btn_afegir.setEnabled(False)
         btn_layout.addWidget(self.btn_afegir)
         
-        self.btn_cancelar = QPushButton("Cancel·lar")
+        self.btn_cancelar = QPushButton("CancelÂ·lar")
         self.btn_cancelar.clicked.connect(self.reject)
         btn_layout.addWidget(self.btn_cancelar)
         
@@ -85,7 +85,7 @@ class AddSociActivitatView(QDialog):
                 WHERE Actiu = 1
                 ORDER BY Cognom1, Cognom2, Nom
             """
-            rows = self.db_manager.execute_query(query)
+            rows = self.db_model.execute_query(query)
             
             self.socis_data = {}
             search_items = []
@@ -113,18 +113,18 @@ class AddSociActivitatView(QDialog):
         self.btn_afegir.setEnabled(text in self.socis_data)
     
     def on_tipus_changed(self, index: int):
-        """Cambia el precio según el tipo de socio"""
+        """Cambia el precio segÃºn el tipo de socio"""
         if index == 0:  # Soci
             self.spin_import.setValue(self.activitat.preu_soci)
         else:  # No Soci
             self.spin_import.setValue(self.activitat.preu_no_soci)
     
     def add_soci(self):
-        """Añade el socio a la actividad"""
+        """AÃ±ade el socio a la actividad"""
         search_text = self.txt_search.text()
         
         if search_text not in self.socis_data:
-            QMessageBox.warning(self, "Error", "Selecciona un soci vàlid")
+            QMessageBox.warning(self, "Error", "Selecciona un soci vÃ lid")
             return
         
         soci_famid = self.socis_data[search_text]  # Ahora es FAMID (str)

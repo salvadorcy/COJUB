@@ -9,10 +9,17 @@ from views.activitats_view import ActivitatsView
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     
-    # Crear instancias de las capas del patrón MVVM
-    model = DatabaseModel()
-    view_model = ViewModel(model)
-    view = MainWindow(view_model)
+    # Crear instancia del modelo de base de datos (compartida)
+    db_model = DatabaseModel()
+    
+    # Crear ViewModel principal para socios
+    view_model = ViewModel(db_model)
+    
+    # Crear ViewModel para actividades (usa el mismo db_model)
+    activitat_viewmodel = ActivitatViewModel(db_model)
+    
+    # Crear vista principal y pasarle ambos viewmodels
+    view = MainWindow(view_model, activitat_viewmodel)
     
     view.showMaximized()
     

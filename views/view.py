@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QFileDialog, QPlainTextEdit
+﻿from PyQt6.QtWidgets import QFileDialog, QPlainTextEdit
 import os
 import platform
 from PyQt6.QtGui import QDesktopServices
@@ -11,6 +11,7 @@ from PyQt6.QtCore import QUrl
 from datetime import datetime
 from .style_config import STYLE_CONFIG
 import platform
+from views.activitats_view import ActivitatsView
 
 class SocioDialog(QDialog):
     """Diálogo para agregar o editar un socio."""
@@ -577,11 +578,12 @@ class DadesDialog(QDialog):
 
 class MainWindow(QMainWindow):
     """Ventana principal de la aplicación."""
-    def __init__(self, view_model):
+    def __init__(self, view_model, activitat_viewmodel=None):
         super().__init__()
         self.setWindowTitle("Gestió de Socis i Remeses SEPA")
         self.setGeometry(100, 100, 1280, 800)
         self.view_model = view_model
+        self.activitat_viewmodel = activitat_viewmodel
         
         # Conectar señales del ViewModel a métodos de la Vista
         self.view_model.socis_changed.connect(self.update_socis_table)
@@ -619,13 +621,14 @@ class MainWindow(QMainWindow):
         reports_config_group.setFont(QFont(STYLE_CONFIG["font_family"], STYLE_CONFIG["font_size_bold"]))
         reports_config_layout = QHBoxLayout(reports_config_group)
         
+        self.activitats_button = QPushButton("Gestió d'Activitats")        
         self.config_button = QPushButton("Configuració")
         self.sepa_button = QPushButton("Genera Remesa SEPA")
         self.print_general_button = QPushButton("Imprimeix Llistat General")
         self.print_banking_button = QPushButton("Imprimeix Dades Bancàries")
         self.print_etiquetes_button = QPushButton("Imprimeix Etiquetes")
         
-
+        reports_config_layout.addWidget(self.activitats_button)
         reports_config_layout.addWidget(self.config_button)
         reports_config_layout.addWidget(self.sepa_button)
         reports_config_layout.addWidget(self.print_general_button)
@@ -640,6 +643,7 @@ class MainWindow(QMainWindow):
         self.add_button.clicked.connect(self.add_socio)
         self.edit_button.clicked.connect(self.edit_socio)
         self.delete_button.clicked.connect(self.delete_socio)
+        self.activitats_button.clicked.connect(self.open_activitats)
         self.config_button.clicked.connect(self.edit_dades)
         self.sepa_button.clicked.connect(self.generar_sepa)
         self.print_general_button.clicked.connect(self.print_general_report)
@@ -786,7 +790,7 @@ class MainWindow(QMainWindow):
             
                 if success:
                     QMessageBox.information(self, "Èxit", "Soci actualitzat correctament.")
-                    self.refresh_table()
+                    self.update_socis_table()
                 else:
                     QMessageBox.critical(self, "Error", "No s'ha pogut actualitzar el soci.")
                 
@@ -839,13 +843,51 @@ class MainWindow(QMainWindow):
     
     def print_general_report(self):
         """Genera e imprime el listado general de socios."""
-        filepath, _ = QFileDialog.getSaveFileName(self, "Guardar llistat general", "llistat_general.pdf", "PDF Files (*.pdf)")
+        from PyQt6.QtWidgets import QInputDialog
+    
+        # Recargar todos los socios (por si había filtro activo)
+        self.view_model.load_data()
+    
+        # Preguntar orden
+        orden_opciones = ["Ordre Alfabètic", "Ordre per Número de Soci"]
+        orden, ok = QInputDialog.getItem(
+            self,
+            "Ordenació del Llistat",
+            "Tria l'ordre del llistat:",
+            orden_opciones,
+            0,
+            False
+        )
+    
+        if not ok:
+            return
+    
+        # Elegir archivo
+        filepath, _ = QFileDialog.getSaveFileName(
+            self, 
+            "Guardar llistat general", 
+            "llistat_general.pdf", 
+            "PDF Files (*.pdf)"
+        )
+    
         if filepath:
-            if self.view_model.generate_general_report(filepath):
-                QMessageBox.information(self, "Llistat Generat", f"El llistat general s'ha generat a:\n{filepath}")
+            # Pasar el orden elegido al viewmodel
+            orden_alfabetic = (orden == "Ordre Alfabètic")
+        
+            resultado = self.view_model.generate_general_report(filepath, orden_alfabetic)
+            if resultado:
+                QMessageBox.information(
+                    self, 
+                    "Llistat Generat", 
+                    f"El llistat general s'ha generat a:\n{filepath}"
+                )
                 self._open_file(filepath)
             else:
-                QMessageBox.critical(self, "Error", "No s'ha pogut generar el llistat general.")
+                QMessageBox.critical(
+                    self, 
+                    "Error", 
+                    "No s'ha pogut generar el llistat general.\nMira la consola per a més detalls."
+                )
 
     def print_banking_report(self):
         """Genera e imprime el listado de datos bancarios."""
@@ -901,3 +943,18 @@ class MainWindow(QMainWindow):
                     "Error",
                     "No s'han pogut generar les etiquetes."
                 )
+
+    def open_activitats(self):
+        """Abre la ventana de gestión de actividades"""
+        if self.activitat_viewmodel is None:
+            QMessageBox.warning(
+                self,
+                "No disponible",
+                "El mòdul d'activitats no està configurat."
+            )
+            return
+        
+        dialog = ActivitatsView(self.activitat_viewmodel)
+        dialog.setModal(True)
+        dialog.resize(1000, 700)
+        dialog.exec()

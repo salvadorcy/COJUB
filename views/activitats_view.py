@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
+Ôªøfrom PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton,
                               QTableWidget, QTableWidgetItem, QHeaderView, 
                               QMessageBox, QLabel)
 from PyQt6.QtCore import Qt, pyqtSignal
@@ -7,10 +7,10 @@ from viewmodels.activitat_viewmodel import ActivitatViewModel
 from views.activitat_form_view import ActivitatFormView
 from views.activitat_detail_view import ActivitatDetailView
 
-class ActivitatsView(QWidget):
+class ActivitatsView(QDialog):
     """Vista principal para listar actividades"""
     
-    def __init__(self, viewmodel: ActivitatViewModel):
+    def __init__(self, viewmodel: ActivitatViewModel, parent=None):
         super().__init__()
         self.viewmodel = viewmodel
         self.init_ui()
@@ -21,12 +21,12 @@ class ActivitatsView(QWidget):
         """Inicializa la interfaz"""
         layout = QVBoxLayout()
         
-        # TÌtulo
-        title = QLabel("GestiÛ d'Activitats")
+        # T√≠tulo
+        title = QLabel("Gestio d'Activitats")
         title.setStyleSheet("font-size: 18px; font-weight: bold; margin: 10px;")
         layout.addWidget(title)
         
-        # Botones de acciÛn
+        # Botones de acci√≥n
         btn_layout = QHBoxLayout()
         
         self.btn_nova = QPushButton("Nova Activitat")
@@ -54,7 +54,7 @@ class ActivitatsView(QWidget):
         self.table = QTableWidget()
         self.table.setColumnCount(7)
         self.table.setHorizontalHeaderLabels([
-            "ID", "DescripciÛ", "Data Inici", "Data Fi", 
+            "ID", "Descripcio", "Data Inici", "Data Fi", 
             "Preu Soci", "Preu No Soci", "Estat"
         ])
         
@@ -74,7 +74,7 @@ class ActivitatsView(QWidget):
         self.setLayout(layout)
     
     def connect_signals(self):
-        """Conecta las seÒales del ViewModel"""
+        """Conecta las senyales del ViewModel"""
         self.viewmodel.activitats_updated.connect(self.update_table)
         self.viewmodel.error_occurred.connect(self.show_error)
         self.viewmodel.success_message.connect(self.show_success)
@@ -90,7 +90,7 @@ class ActivitatsView(QWidget):
             # ID
             self.table.setItem(row, 0, QTableWidgetItem(str(activitat.id)))
             
-            # DescripciÛ
+            # Descripci√≥
             self.table.setItem(row, 1, QTableWidgetItem(activitat.descripcio))
             
             # Data Inici
@@ -102,10 +102,10 @@ class ActivitatsView(QWidget):
             self.table.setItem(row, 3, QTableWidgetItem(data_fi))
             
             # Preu Soci
-            self.table.setItem(row, 4, QTableWidgetItem(f"{activitat.preu_soci:.2f} Ä"))
+            self.table.setItem(row, 4, QTableWidgetItem(f"{activitat.preu_soci:.2f} ‚Ç¨"))
             
             # Preu No Soci
-            self.table.setItem(row, 5, QTableWidgetItem(f"{activitat.preu_no_soci:.2f} Ä"))
+            self.table.setItem(row, 5, QTableWidgetItem(f"{activitat.preu_no_soci:.2f} ‚Ç¨"))
             
             # Estat
             estat = "Completada" if activitat.completada else "Activa"
@@ -117,7 +117,7 @@ class ActivitatsView(QWidget):
             self.table.setItem(row, 6, item_estat)
     
     def on_selection_changed(self):
-        """Maneja el cambio de selecciÛn"""
+        """Maneja el cambio de selecci√≥n"""
         has_selection = len(self.table.selectedItems()) > 0
         self.btn_editar.setEnabled(has_selection)
         self.btn_eliminar.setEnabled(has_selection)
@@ -157,8 +157,8 @@ class ActivitatsView(QWidget):
         
         reply = QMessageBox.question(
             self,
-            "Confirmar eliminaciÛ",
-            f"Est‡s segur que vols eliminar l'activitat '{activitat.descripcio}'?",
+            "Confirmar eliminaci√≥",
+            f"Est√†s segur que vols eliminar l'activitat '{activitat.descripcio}'?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         
@@ -177,5 +177,5 @@ class ActivitatsView(QWidget):
         QMessageBox.critical(self, "Error", message)
     
     def show_success(self, message: str):
-        """Muestra un mensaje de Èxito"""
-        QMessageBox.information(self, "»xit", message)
+        """Muestra un mensaje de √©xito"""
+        QMessageBox.information(self, "√àxit", message)

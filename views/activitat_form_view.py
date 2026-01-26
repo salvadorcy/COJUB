@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
+ï»¿from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
                               QLineEdit, QDateEdit, QDoubleSpinBox, QCheckBox,
                               QPushButton, QTextEdit, QLabel)
 from PyQt6.QtCore import QDate
@@ -30,10 +30,10 @@ class ActivitatFormView(QDialog):
         # Formulario
         form = QFormLayout()
         
-        # Descripció
+        # DescripciÃ³
         self.txt_descripcio = QLineEdit()
         self.txt_descripcio.setMaxLength(200)
-        form.addRow("Descripció *:", self.txt_descripcio)
+        form.addRow("DescripciÃ³ *:", self.txt_descripcio)
         
         # Data Inici
         self.date_inici = QDateEdit()
@@ -53,14 +53,14 @@ class ActivitatFormView(QDialog):
         self.spin_preu_soci = QDoubleSpinBox()
         self.spin_preu_soci.setRange(0, 9999.99)
         self.spin_preu_soci.setDecimals(2)
-        self.spin_preu_soci.setSuffix(" €")
+        self.spin_preu_soci.setSuffix(" â‚¬")
         form.addRow("Preu Soci:", self.spin_preu_soci)
         
         # Preu No Soci
         self.spin_preu_no_soci = QDoubleSpinBox()
         self.spin_preu_no_soci.setRange(0, 9999.99)
         self.spin_preu_no_soci.setDecimals(2)
-        self.spin_preu_no_soci.setSuffix(" €")
+        self.spin_preu_no_soci.setSuffix(" â‚¬")
         form.addRow("Preu No Soci:", self.spin_preu_no_soci)
         
         # Completada
@@ -82,7 +82,7 @@ class ActivitatFormView(QDialog):
         self.btn_guardar.clicked.connect(self.save)
         btn_layout.addWidget(self.btn_guardar)
         
-        self.btn_cancelar = QPushButton("Cancel·lar")
+        self.btn_cancelar = QPushButton("CancelÂ·lar")
         self.btn_cancelar.clicked.connect(self.reject)
         btn_layout.addWidget(self.btn_cancelar)
         
@@ -115,10 +115,10 @@ class ActivitatFormView(QDialog):
     
     def save(self):
         """Guarda la actividad"""
-        # Validación
+        # ValidaciÃ³n
         if not self.txt_descripcio.text().strip():
             from PyQt6.QtWidgets import QMessageBox
-            QMessageBox.warning(self, "Error", "La descripció és obligatòria")
+            QMessageBox.warning(self, "Error", "La descripciÃ³ Ã©s obligatÃ²ria")
             return
         
         # Crear/actualizar activitat

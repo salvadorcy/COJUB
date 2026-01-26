@@ -179,14 +179,35 @@ class ViewModel(QObject):
             self.load_data()  # Recargar datos después de actualizar
         return success
     
-    def generate_general_report(self, filepath):
-        """Genera un listado general de socios en PDF."""
+    def generate_general_report(self, filepath, orden_alfabetic=True):
+        """
+        Genera el informe general de socios.
+    
+        Args:
+            filepath: Ruta del archivo PDF
+            orden_alfabetic: True para orden alfabético, False para orden por número
+        """
         try:
-            pdf = PdfGenerator()
-            pdf.generate_general_report(self.filtered_socis, self.socis_map, filepath)
+            # Filtrar solo socios activos
+            socis_actius = [s for s in self.all_socis if not s.bBaixa]
+    
+            # Ordenar según parámetro
+            if orden_alfabetic:
+                # Orden alfabético: Cognom1 + Cognom2 + Nom
+                socis_ordenats = sorted(socis_actius, key=lambda s: (s.FAMNom, s.FAMAdressa))
+            else:
+                # Orden por número de socio (FAMID)
+                socis_ordenats = sorted(socis_actius, key=lambda s: s.FAMID)
+    
+            # Generar PDF con los socios ordenados
+            generator = PdfGenerator()
+            generator.dades = self.dades
+            generator.generate_general_report(socis_ordenats, self.dades, filepath)
             return True
         except Exception as e:
-            print(f"Error al generar el listado general: {e}")
+            print(f"ERROR: {e}")  # ← AÑADE ESTO
+            import traceback
+            traceback.print_exc()
             return False
 
     def generate_banking_report(self, filepath):

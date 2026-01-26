@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+﻿from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Optional
 
@@ -18,7 +18,7 @@ class Activitat:
 
 @dataclass
 class ActivitatInscripcio:
-    """Modelo para la inscripci�n de un socio en una actividad"""
+    """Modelo para la inscripción de un socio en una actividad"""
     id: Optional[int] = None
     activitat_id: int = 0
     soci_codi: str = ""  # CAMBIADO: de int a str para FAMID (CHAR(5))

@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
+Ôªøfrom PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                               QPushButton, QTableWidget, QTableWidgetItem,
                               QHeaderView, QMessageBox, QGroupBox, QFormLayout,
                               QCheckBox)
@@ -27,11 +27,11 @@ class ActivitatDetailView(QDialog):
         """Inicializa la interfaz"""
         layout = QVBoxLayout()
         
-        # InformaciÛn de la actividad
-        info_group = QGroupBox("InformaciÛ de l'Activitat")
+        # Informaci√≥n de la actividad
+        info_group = QGroupBox("Informaci√≥ de l'Activitat")
         info_layout = QFormLayout()
         
-        info_layout.addRow("DescripciÛ:", QLabel(self.activitat.descripcio))
+        info_layout.addRow("Descripci√≥:", QLabel(self.activitat.descripcio))
         
         data_inici = self.activitat.data_inici.strftime("%d/%m/%Y") if self.activitat.data_inici else ""
         info_layout.addRow("Data Inici:", QLabel(data_inici))
@@ -39,8 +39,8 @@ class ActivitatDetailView(QDialog):
         data_fi = self.activitat.data_fi.strftime("%d/%m/%Y") if self.activitat.data_fi else ""
         info_layout.addRow("Data Fi:", QLabel(data_fi))
         
-        info_layout.addRow("Preu Soci:", QLabel(f"{self.activitat.preu_soci:.2f} Ä"))
-        info_layout.addRow("Preu No Soci:", QLabel(f"{self.activitat.preu_no_soci:.2f} Ä"))
+        info_layout.addRow("Preu Soci:", QLabel(f"{self.activitat.preu_soci:.2f} ‚Ç¨"))
+        info_layout.addRow("Preu No Soci:", QLabel(f"{self.activitat.preu_no_soci:.2f} ‚Ç¨"))
         
         estat = "Completada" if self.activitat.completada else "Activa"
         info_layout.addRow("Estat:", QLabel(estat))
@@ -48,13 +48,13 @@ class ActivitatDetailView(QDialog):
         info_group.setLayout(info_layout)
         layout.addWidget(info_group)
         
-        # EstadÌsticas
-        self.stats_group = QGroupBox("EstadÌstiques")
+        # Estad√≠sticas
+        self.stats_group = QGroupBox("Estad√≠stiques")
         self.stats_layout = QHBoxLayout()
         
         self.lbl_total_inscrits = QLabel("Inscrits: 0")
         self.lbl_total_pagats = QLabel("Pagats: 0")
-        self.lbl_total_recaptat = QLabel("Recaptat: 0.00 Ä")
+        self.lbl_total_recaptat = QLabel("Recaptat: 0.00 ‚Ç¨")
         
         self.stats_layout.addWidget(self.lbl_total_inscrits)
         self.stats_layout.addWidget(self.lbl_total_pagats)
@@ -64,7 +64,7 @@ class ActivitatDetailView(QDialog):
         self.stats_group.setLayout(self.stats_layout)
         layout.addWidget(self.stats_group)
         
-        # Botones de acciÛn
+        # Botones de acci√≥n
         btn_layout = QHBoxLayout()
         
         self.btn_add_soci = QPushButton("Afegir Soci")
@@ -107,7 +107,7 @@ class ActivitatDetailView(QDialog):
         self.setLayout(layout)
     
     def connect_signals(self):
-        """Conecta las seÒales del ViewModel"""
+        """Conecta las se√±ales del ViewModel"""
         self.viewmodel.inscripcions_updated.connect(self.update_table)
         self.viewmodel.inscripcions_updated.connect(self.update_stats)
         self.viewmodel.error_occurred.connect(self.show_error)
@@ -135,7 +135,7 @@ class ActivitatDetailView(QDialog):
             self.table.setItem(row, 3, QTableWidgetItem(tipus))
             
             # Import
-            import_text = f"{inscripcio.import_pagat:.2f} Ä" if inscripcio.import_pagat else ""
+            import_text = f"{inscripcio.import_pagat:.2f} ‚Ç¨" if inscripcio.import_pagat else ""
             self.table.setItem(row, 4, QTableWidgetItem(import_text))
             
             # Pagat (checkbox)
@@ -154,7 +154,7 @@ class ActivitatDetailView(QDialog):
             
             self.table.setCellWidget(row, 5, widget)
             
-            # Color de fondo seg˙n si est· pagado
+            # Color de fondo seg√∫n si est√° pagado
             if inscripcio.pagat:
                 for col in range(6):
                     item = self.table.item(row, col)
@@ -162,15 +162,15 @@ class ActivitatDetailView(QDialog):
                         item.setBackground(QColor(144, 238, 144))  # Verde claro
     
     def update_stats(self):
-        """Actualiza las estadÌsticas"""
+        """Actualiza las estad√≠sticas"""
         stats = self.viewmodel.get_estadistiques_activitat(self.activitat.id)
         
         self.lbl_total_inscrits.setText(f"Inscrits: {stats.get('total_inscrits', 0)}")
         self.lbl_total_pagats.setText(f"Pagats: {stats.get('total_pagats', 0)}")
-        self.lbl_total_recaptat.setText(f"Recaptat: {stats.get('total_recaptat', 0):.2f} Ä")
+        self.lbl_total_recaptat.setText(f"Recaptat: {stats.get('total_recaptat', 0):.2f} ‚Ç¨")
     
     def on_selection_changed(self):
-        """Maneja el cambio de selecciÛn"""
+        """Maneja el cambio de selecci√≥n"""
         has_selection = len(self.table.selectedItems()) > 0
         self.btn_remove_soci.setEnabled(has_selection)
     
@@ -180,7 +180,7 @@ class ActivitatDetailView(QDialog):
         self.viewmodel.marcar_pagament(inscripcio_id, pagat, self.activitat.id)
     
     def add_soci(self):
-        """AÒade un socio a la actividad"""
+        """A√±ade un socio a la actividad"""
         dialog = AddSociActivitatView(self.viewmodel, self.activitat, parent=self)
         dialog.exec()
     
@@ -201,7 +201,7 @@ class ActivitatDetailView(QDialog):
         reply = QMessageBox.question(
             self,
             "Confirmar baixa",
-            f"Est‡s segur que vols donar de baixa a {inscripcio.nom_soci} {inscripcio.cognoms_soci}?",
+            f"Est√†s segur que vols donar de baixa a {inscripcio.nom_soci} {inscripcio.cognoms_soci}?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         
@@ -227,5 +227,5 @@ class ActivitatDetailView(QDialog):
         QMessageBox.critical(self, "Error", message)
     
     def show_success(self, message: str):
-        """Muestra un mensaje de Èxito"""
-        QMessageBox.information(self, "»xit", message)
+        """Muestra un mensaje de √©xito"""
+        QMessageBox.information(self, "√àxit", message)

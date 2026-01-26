@@ -1,24 +1,24 @@
-from PyQt6.QtCore import QObject, pyqtSignal
+ï»¿from PyQt6.QtCore import QObject, pyqtSignal
 from typing import List, Optional
 from models.activitat import Activitat, ActivitatInscripcio
-from database.db_manager import DatabaseManager
+from models.model import DatabaseModel
 from datetime import date
 
 class ActivitatViewModel(QObject):
-    """ViewModel para la gestión de actividades"""
+    """ViewModel para la gestiÃ³n de actividades"""
     
     activitats_updated = pyqtSignal()
     inscripcions_updated = pyqtSignal()
     error_occurred = pyqtSignal(str)
     success_message = pyqtSignal(str)
     
-    def __init__(self, db_manager: DatabaseManager):
+    def __init__(self, db_model: DatabaseModel):
         super().__init__()
-        self.db_manager = db_manager
+        self.db_model = db_model
         self._activitats: List[Activitat] = []
         self._inscripcions: List[ActivitatInscripcio] = []
     
-    # --- GESTIÓN DE ACTIVIDADES ---
+    # --- GESTIÃ“N DE ACTIVIDADES ---
     
     def load_activitats_actives(self):
         """Carga todas las actividades activas"""
@@ -31,7 +31,9 @@ class ActivitatViewModel(QObject):
                 WHERE activa = 1
                 ORDER BY data_inici DESC
             """
-            rows = self.db_manager.execute_query(query)
+            with self.db_model.conn.cursor() as cursor:
+                cursor.execute(query)
+                rows = cursor.fetchall()
             
             self._activitats = []
             for row in rows:
@@ -75,7 +77,9 @@ class ActivitatViewModel(QObject):
                 activitat.completada
             )
             
-            self.db_manager.execute_non_query(query, params)
+            with self.db_model.conn.cursor() as cursor:
+                cursor.execute(query, params)
+                self.db_model.conn.commit()
             self.success_message.emit("Activitat creada correctament")
             self.load_activitats_actives()
             return True
@@ -104,7 +108,9 @@ class ActivitatViewModel(QObject):
                 activitat.id
             )
             
-            self.db_manager.execute_non_query(query, params)
+            with self.db_model.conn.cursor() as cursor:
+                cursor.execute(query, params)
+                self.db_model.conn.commit()
             self.success_message.emit("Activitat actualitzada correctament")
             self.load_activitats_actives()
             return True
@@ -120,8 +126,12 @@ class ActivitatViewModel(QObject):
                 UPDATE scazorla_sa.G_Activitats
                 SET activa = 0, updated_at = GETDATE()
                 WHERE id = ?
-            """
-            self.db_manager.execute_non_query(query, (activitat_id,))
+            """           
+
+            with self.db_model.conn.cursor() as cursor:
+                cursor.execute(query, (activitat_id,))
+                self.db_model.conn.commit()
+
             self.success_message.emit("Activitat eliminada correctament")
             self.load_activitats_actives()
             return True
@@ -130,7 +140,7 @@ class ActivitatViewModel(QObject):
             self.error_occurred.emit(f"Error eliminant activitat: {str(e)}")
             return False
     
-    # --- GESTIÓN DE INSCRIPCIONES ---
+    # --- GESTIÃ“N DE INSCRIPCIONES ---
     
     def load_inscripcions(self, activitat_id: int):
         """Carga totes les inscripcions d'una activitat"""
@@ -145,8 +155,12 @@ class ActivitatViewModel(QObject):
                 WHERE i.activitat_id = ? AND i.activa = 1
                 ORDER BY s.Cognom1, s.Cognom2, s.Nom
             """
-            rows = self.db_manager.execute_query(query, (activitat_id,))
+            #rows = self.db_model.execute_query(query, (activitat_id,))
             
+            with self.db_model.conn.cursor() as cursor:
+                cursor.execute(query,(activitat_id,))
+                rows = cursor.fetchall()
+
             self._inscripcions = []
             for row in rows:
                 inscripcio = ActivitatInscripcio(
@@ -183,10 +197,13 @@ class ActivitatViewModel(QObject):
                 SELECT COUNT(*) FROM scazorla_sa.G_Activitats_Socis
                 WHERE activitat_id = ? AND soci_codi = ? AND activa = 1
             """
-            result = self.db_manager.execute_query(check_query, (activitat_id, soci_codi))
+            
+            with self.db_model.conn.cursor() as cursor:
+                cursor.execute(query,(activitat_id, soci_codi))
+                result = cursor.fetchall()
             
             if result and result[0][0] > 0:
-                self.error_occurred.emit("Aquest soci ja està inscrit a l'activitat")
+                self.error_occurred.emit("Aquest soci ja estÃ  inscrit a l'activitat")
                 return False
             
             query = """
@@ -196,7 +213,9 @@ class ActivitatViewModel(QObject):
             """
             params = (activitat_id, soci_codi, es_soci, preu)
             
-            self.db_manager.execute_non_query(query, params)
+            with self.db_model.conn.cursor() as cursor:
+                cursor.execute(query, params)
+                self.db_model.conn.commit()
             self.success_message.emit("Soci inscrit correctament")
             self.load_inscripcions(activitat_id)
             return True
@@ -212,8 +231,11 @@ class ActivitatViewModel(QObject):
                 UPDATE scazorla_sa.G_Activitats_Socis
                 SET activa = 0
                 WHERE id = ?
-            """
-            self.db_manager.execute_non_query(query, (inscripcio_id,))
+            """            
+
+            with self.db_model.conn.cursor() as cursor:
+                cursor.execute(query, (inscripcio_id,))
+                self.db_model.conn.commit()
             self.success_message.emit("Soci donat de baixa de l'activitat")
             self.load_inscripcions(activitat_id)
             return True
@@ -223,14 +245,18 @@ class ActivitatViewModel(QObject):
             return False
     
     def marcar_pagament(self, inscripcio_id: int, pagat: bool, activitat_id: int) -> bool:
-        """Marca/desmarca el pagament d'una inscripció"""
+        """Marca/desmarca el pagament d'una inscripciÃ³"""
         try:
             query = """
                 UPDATE scazorla_sa.G_Activitats_Socis
                 SET pagat = ?
                 WHERE id = ?
             """
-            self.db_manager.execute_non_query(query, (pagat, inscripcio_id))
+
+            with self.db_model.conn.cursor() as cursor:
+                cursor.execute(query, (pagat, inscripcio_id))
+                self.db_model.conn.commit()
+
             self.success_message.emit("Estat de pagament actualitzat")
             self.load_inscripcions(activitat_id)
             return True
@@ -240,7 +266,7 @@ class ActivitatViewModel(QObject):
             return False
     
     def get_estadistiques_activitat(self, activitat_id: int) -> dict:
-        """Obtiene estadísticas d'una activitat"""
+        """Obtiene estadÃ­sticas d'una activitat"""
         try:
             query = """
                 SELECT 
@@ -251,7 +277,10 @@ class ActivitatViewModel(QObject):
                 FROM scazorla_sa.G_Activitats_Socis
                 WHERE activitat_id = ? AND activa = 1
             """
-            result = self.db_manager.execute_query(query, (activitat_id,))
+
+            with self.db_model.conn.cursor() as cursor:
+                cursor.execute(query,(activitat_id,))
+                result = cursor.fetchall()
             
             if result and len(result) > 0:
                 row = result[0]
@@ -269,5 +298,5 @@ class ActivitatViewModel(QObject):
             }
             
         except Exception as e:
-            self.error_occurred.emit(f"Error obtenint estadístiques: {str(e)}")
+            self.error_occurred.emit(f"Error obtenint estadÃ­stiques: {str(e)}")
             return {}

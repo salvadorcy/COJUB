@@ -2,6 +2,8 @@ import os
 from dotenv import load_dotenv
 import pyodbc
 from collections import namedtuple
+from datetime import datetime
+
 
 # Definir la estructura de los datos del socio y de configuración
 #Socio = namedtuple('Socio', [
@@ -56,10 +58,10 @@ class DatabaseModel:
         # NOTA: Debes rellenar esta cadena de conexión con tus propios datos
         self.conn_str = (
             f"DRIVER={{ODBC Driver 17 for SQL Server}};"
-            f"SERVER={os.getenv("SQL_SERVER")};"
-            f"DATABASE={os.getenv("SQL_DATABASE")};"
-            f"UID={os.getenv("SQL_USER")};"
-            f"PWD={os.getenv("SQL_PASSWORD")};"
+            f"SERVER={os.getenv('SQL_SERVER')};"
+            f"DATABASE={os.getenv('SQL_DATABASE')};"
+            f"UID={os.getenv('SQL_USER')};"
+            f"PWD={os.getenv('SQL_PASSWORD')};"
         )
         self.conn = pyodbc.connect(self.conn_str)
 
@@ -229,6 +231,75 @@ class DatabaseModel:
         except pyodbc.Error as ex:
             print(f"Error al actualizar socio: {ex}")
             return False
+        
+        def rename_socio(self, old_fam_id: str, new_data: tuple) -> bool:
+            """
+            Cambia el FAMID de un socio, replicándolo en tablas relacionadas.
+
+            Estrategia segura (evita problemas con PK/FK):
+            1) Inserta el socio con el nuevo FAMID (con todos sus datos).
+            2) Actualiza referencias (G_Activitats_Socis.soci_codi y G_Socis.FAMSociReferencia).
+            3) Borra el socio antiguo.
+            Todo dentro de una transacción.
+            """
+            old_fam_id = (old_fam_id or "").strip()
+            new_fam_id = (new_data[0] or "").strip()
+
+            if not old_fam_id or not new_fam_id:
+                return False
+
+            # Validaciones
+            if not self.socio_exists(old_fam_id):
+                print(f"Error: no existe el socio original {old_fam_id}")
+                return False
+
+            if old_fam_id == new_fam_id:
+                # Nada que hacer
+                return self.update_socio(new_data)
+
+            if self.socio_exists(new_fam_id):
+                print(f"Error: ya existe un socio con el nuevo ID {new_fam_id}")
+                return False
+
+            try:
+                with self.conn.cursor() as cursor:
+                    # 1) Insertar el socio nuevo
+                    n_placeholders = len(new_data)
+                    placeholders = ', '.join(['?'] * n_placeholders)
+                    columns = ', '.join(Socio._fields)
+                    insert_sql = f"INSERT INTO scazorla_sa.G_Socis ({columns}) VALUES ({placeholders})"
+                    cursor.execute(insert_sql, new_data)
+
+                    # 2) Actualizar referencias en la misma tabla (parejas)
+                    cursor.execute(
+                        "UPDATE scazorla_sa.G_Socis SET FAMSociReferencia = ? WHERE FAMSociReferencia = ?",
+                        (new_fam_id, old_fam_id)
+                    )
+
+                    # 2b) Actualizar inscripciones de actividades
+                    cursor.execute(
+                        "UPDATE scazorla_sa.G_Activitats_Socis SET soci_codi = ? WHERE soci_codi = ?",
+                        (new_fam_id, old_fam_id)
+                    )
+
+                    # 3) Borrar el socio antiguo
+                    cursor.execute(
+                        "DELETE FROM scazorla_sa.G_Socis WHERE FAMID = ?",
+                        (old_fam_id,)
+                    )
+
+                    self.conn.commit()
+
+                return True
+
+            except pyodbc.Error as ex:
+                try:
+                    self.conn.rollback()
+                except Exception:
+                    pass
+                print(f"Error al renombrar socio: {ex}")
+                return False
+
 
     def delete_socio(self, fam_id):
         """Da de baja un socio (marca bBaixa = True y establece fecha de baja)."""

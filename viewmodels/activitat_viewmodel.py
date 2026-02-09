@@ -199,10 +199,10 @@ class ActivitatViewModel(QObject):
             """
             
             with self.db_model.conn.cursor() as cursor:
-                cursor.execute(query,(activitat_id, soci_codi))
-                result = cursor.fetchall()
+                cursor.execute(check_query, (activitat_id, soci_codi))
+                result = cursor.fetchone()
             
-            if result and result[0][0] > 0:
+            if result and result[0] > 0:
                 self.error_occurred.emit("Aquest soci ja està inscrit a l'activitat")
                 return False
             

@@ -133,14 +133,22 @@ class ViewModel(QObject):
             return self.selected_socio
         return None
 
-    def save_socio(self, data):
+    def save_socio(self, data, original_fam_id=None):
         """Guarda o actualiza un socio en la base de datos."""
         fam_id = data[0]
     
-        if self.model.socio_exists(fam_id):
-            success = self.model.update_socio(data)
+        fam_id = data[0]
+
+        # Si venimos de edición y el ID ha cambiado -> renombrar (replicar en tablas relacionadas)
+        if original_fam_id:
+            original_fam_id = original_fam_id.strip()
+        if original_fam_id and original_fam_id != (fam_id or "").strip():
+            success = self.model.rename_socio(original_fam_id, data)
         else:
-            success = self.model.add_socio(data)
+            if self.model.socio_exists(fam_id):
+                success = self.model.update_socio(data)
+            else:
+                success = self.model.add_socio(data)
     
         if success:
             # DEBUG: Verificar datos ANTES de recargar

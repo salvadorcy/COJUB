@@ -21,6 +21,7 @@ class SocioDialog(QDialog):
         self.setGeometry(100, 100, 1000, 650)  # Más ancho para 2 columnas
         self.socio_data = socio
         self.todos_socis = todos_socis if todos_socis else []
+        self.original_famid = socio[0].strip() if socio else None
 
         # Layout principal
         main_layout = QVBoxLayout(self)
@@ -49,11 +50,13 @@ class SocioDialog(QDialog):
         
         # ID
         self.fields["FAMID"] = QLineEdit()
-        self.fields["FAMID"].setReadOnly(True)
-        self.fields["FAMID"].setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.fields["FAMID"].setReadOnly(False)
         self.fields["FAMID"].setEnabled(False)
-        self.fields["FAMID"].setStyleSheet("QLineEdit:disabled { background-color: #f0f0f0; color: #666666; border: 1px solid #cccccc; }")
-        left_form.addRow("ID", self.fields["FAMID"])
+        self.fields["FAMID"].setStyleSheet(
+            "QLineEdit:disabled { background-color: #f0f0f0; color: #666666; border: 1px solid #cccccc; }"
+        )
+        self.fields["FAMID"].setToolTip("Pots modificar l'ID. El canvi es replicarà a activitats i soci parella.")
+
         
         # NIF
         self.fields["FAMNIF"] = QLineEdit()

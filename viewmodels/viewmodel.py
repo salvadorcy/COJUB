@@ -3,7 +3,7 @@ from PyQt6.QtCore import QObject, pyqtSignal
 from datetime import datetime
 from collections import namedtuple
 from utils.sepa_lib import generar_xml_sepa
-from .pdf_generator import PdfGenerator
+from .pdf_generator import PdfGenerator,PdfGeneratorTabular
 from .report_generator import ReportGenerator
 from .etiquetas_generator import generar_etiquetas_socios
 
@@ -37,9 +37,8 @@ Socio = namedtuple('Socio', [
 ])
 
 Dades = namedtuple('Dades', [
-    'TotalDefuncions', 'AcumulatDefuncions', 'PreuDerrama', 'ComissioBancaria',
-    'IdFactura', 'Presentador', 'CIFPresentador', 'Ordenant', 'CIFOrdenant',
-    'IBANPresentador', 'BICPresentador', 'PWD', 'QuotaSocis',
+    'Presentador', 'CIFPresentador', 'Ordenant', 'CIFOrdenant',
+    'IBANPresentador', 'BICPresentador', 'QuotaSocis',
     'SufixeRebuts', 'TexteRebutFinestreta'
 ])
 
@@ -75,19 +74,24 @@ class ViewModel(QObject):
     def update_filtered_socis(self):
         """Aplica los filtros de búsqueda y otros a la lista de socios."""
         socis = self.all_socis
+
         # Aplicar filtro de baja (por defecto no se muestran los socios dados de baja)
         if not self.filter_baixa_enabled:
             socis = [s for s in socis if not s.bBaixa]
+
         # Aplicar filtro de búsqueda de texto
-        if self.search_text:
+        text = (self.search_text or "").strip().lower()
+        if text:
             socis = [
                 s for s in socis
-                if self.search_text.lower() in s.FAMID.lower() or self.search_text.lower() in s.FAMNom.lower()
+                if text in ((s.FAMID or "").lower())
+                or text in ((s.FAMNom or "").lower())
             ]
+
         # Aplicar filtro de pago por ventanilla
         if self.filter_finestreta_enabled:
             socis = [s for s in socis if s.FAMPagamentFinestreta]
-            
+
         self.filtered_socis = socis
         self.socis_changed.emit()
 
@@ -135,35 +139,52 @@ class ViewModel(QObject):
 
     def save_socio(self, data, original_fam_id=None):
         """Guarda o actualiza un socio en la base de datos."""
-        fam_id = data[0]
-    
-        fam_id = data[0]
+        print(f"DEBUG save_socio: original_fam_id={original_fam_id!r}, new_id={data[0]!r}")
+        try:
+            new_id = (data[0] or "").strip()
+            if not new_id:
+                print("Error: FAMID vacío")
+                return False
 
-        # Si venimos de edición y el ID ha cambiado -> renombrar (replicar en tablas relacionadas)
-        if original_fam_id:
-            original_fam_id = original_fam_id.strip()
-        if original_fam_id and original_fam_id != (fam_id or "").strip():
-            success = self.model.rename_socio(original_fam_id, data)
-        else:
-            if self.model.socio_exists(fam_id):
+            old_id = (original_fam_id or "").strip() if original_fam_id else None
+
+            # =========================
+            # EDICIÓN
+            # =========================
+            if old_id:
+                # Si cambió el ID -> validar y renombrar
+                if new_id != old_id:
+                    if self.model.socio_exists(new_id):
+                        print(f"Error: ya existe un socio con el ID {new_id}")
+                        return False
+
+                    # OJO: rename_socio(old_id, new_id)
+                    if not self.model.rename_socio(old_id, new_id):
+                        return False
+
+                # En edición SIEMPRE update, NUNCA add
                 success = self.model.update_socio(data)
+
+            # =========================
+            # ALTA
+            # =========================
             else:
+                if self.model.socio_exists(new_id):
+                    print(f"Error: ya existe un socio con el ID {new_id}")
+                    return False
+
                 success = self.model.add_socio(data)
-    
-        if success:
-            # DEBUG: Verificar datos ANTES de recargar
-            socio_antes = next((s for s in self.all_socis if s.FAMID.strip() == fam_id.strip()), None)
-            if socio_antes:
-                print(f"🔹 ANTES de load_data() - FAMNIF: '{socio_antes.FAMNIF}'")
-        
-            self.load_data()  # Recargar datos después de guardar
-        
-            # DEBUG: Verificar datos DESPUÉS de recargar
-            socio_despues = next((s for s in self.all_socis if s.FAMID.strip() == fam_id.strip()), None)
-            if socio_despues:
-                print(f"🔹 DESPUÉS de load_data() - FAMNIF: '{socio_despues.FAMNIF}'")
-        
-        return success
+
+            if success:
+                self.load_data()
+
+            return success
+
+        except Exception as e:
+            print(f"ERROR save_socio: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
             
     def delete_selected_socio(self):
         """Elimina el socio seleccionado de la base de datos."""
@@ -181,16 +202,33 @@ class ViewModel(QObject):
         return None
         
     def save_dades(self, data):
-        """Guarda los datos de configuración en la base de datos."""
+        """Guarda los datos de configuración y replica QuotaSocis a todos los socios si cambia."""
+        # Quota anterior (lo que había antes de guardar)
+        old_quota = self.dades.QuotaSocis if self.dades else None
+
         success = self.model.update_dades(data)
-        if success:
-            self.load_data()  # Recargar datos después de actualizar
-        return success
+        if not success:
+            return False
+
+        # Quota nueva (viene del dialog y está en el campo QuotaSocis)
+        # En DadesDialog.get_data() QuotaSocis se convierte a float, así que aquí ya llega como float.
+        try:
+            new_quota = float(data[12])  # índice 12 = "QuotaSocis"
+        except Exception:
+            new_quota = None
+
+        # Si la quota ha cambiado -> replicar a socios (por defecto solo activos)
+        if new_quota is not None and new_quota != old_quota:
+            self.model.set_quota_for_all_socis(new_quota, only_active=True)
+
+        # Recargar todo para reflejar cambios en UI y tabla
+        self.load_data()
+        return True
     
     def generate_general_report(self, filepath, orden_alfabetic=True):
         """
         Genera el informe general de socios.
-    
+
         Args:
             filepath: Ruta del archivo PDF
             orden_alfabetic: True para orden alfabético, False para orden por número
@@ -198,31 +236,49 @@ class ViewModel(QObject):
         try:
             # Filtrar solo socios activos
             socis_actius = [s for s in self.all_socis if not s.bBaixa]
-    
+
+            # Función auxiliar para ordenar sin petar con None
+            def safe_text(value):
+                return (str(value).strip().lower() if value is not None else "")
+
             # Ordenar según parámetro
             if orden_alfabetic:
-                # Orden alfabético: Cognom1 + Cognom2 + Nom
-                socis_ordenats = sorted(socis_actius, key=lambda s: (s.FAMNom, s.FAMAdressa))
+                # Orden alfabético: por nombre y dirección (ambos seguros ante None)
+                socis_ordenats = sorted(
+                    socis_actius,
+                    key=lambda s: (
+                        safe_text(getattr(s, "FAMNom", None)),
+                        safe_text(getattr(s, "FAMAdressa", None)),
+                        safe_text(getattr(s, "FAMID", None)),
+                    )
+                )
             else:
-                # Orden por número de socio (FAMID)
-                socis_ordenats = sorted(socis_actius, key=lambda s: s.FAMID)
-    
+                # Orden por número de socio (FAMID) (seguro ante None)
+                socis_ordenats = sorted(
+                    socis_actius,
+                    key=lambda s: safe_text(getattr(s, "FAMID", None))
+                )
+
             # Generar PDF con los socios ordenados
             generator = PdfGenerator()
             generator.dades = self.dades
             generator.generate_general_report(socis_ordenats, self.dades, filepath)
             return True
+
         except Exception as e:
-            print(f"ERROR: {e}")  # ← AÑADE ESTO
+            print(f"ERROR: {e}")
             import traceback
             traceback.print_exc()
             return False
 
     def generate_banking_report(self, filepath):
-        """Genera un listado de datos bancarios de socios en PDF."""
         try:
-            pdf = PdfGenerator()
-            pdf.generate_banking_report(self.filtered_socis, filepath)
+            socis_actius = [s for s in self.all_socis if not s.bBaixa]
+
+            generator = PdfGeneratorTabular()
+            generator.dades = self.dades
+            generator.generate_banking_report(socis_actius, self.dades, filepath)
+
             return True
         except Exception as e:
             print(f"Error al generar el listado bancario: {e}")

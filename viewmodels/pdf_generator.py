@@ -18,6 +18,7 @@ Fecha: 2024
 """
 
 import os
+    
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle

@@ -51,12 +51,12 @@ class SocioDialog(QDialog):
         # ID
         self.fields["FAMID"] = QLineEdit()
         self.fields["FAMID"].setReadOnly(False)
-        self.fields["FAMID"].setEnabled(False)
+        self.fields["FAMID"].setEnabled(True)
         self.fields["FAMID"].setStyleSheet(
             "QLineEdit:disabled { background-color: #f0f0f0; color: #666666; border: 1px solid #cccccc; }"
         )
         self.fields["FAMID"].setToolTip("Pots modificar l'ID. El canvi es replicarà a activitats i soci parella.")
-
+        left_form.addRow("ID", self.fields["FAMID"])
         
         # NIF
         self.fields["FAMNIF"] = QLineEdit()
@@ -343,7 +343,8 @@ class SocioDialog(QDialog):
     def fill_form(self):
         """Rellena el formulario con los datos del socio si existe."""
         if self.socio_data:
-            self.fields["FAMID"].setEnabled(False)
+            self.fields["FAMID"].setEnabled(True)
+            self.fields["FAMID"].setReadOnly(False)
             
             ordered_keys = [
                 "FAMID", "FAMNom", "FAMAdressa", "FAMPoblacio", "FAMCodPos",
@@ -505,18 +506,18 @@ class DadesDialog(QDialog):
         
         self.fields = {}
         fields_config = [
-            ("TotalDefuncions", QLineEdit(), "Total Defuncions"),
-            ("AcumulatDefuncions", QLineEdit(), "Acumulat Defuncions"),
-            ("PreuDerrama", QLineEdit(), "Preu Derrama"),
-            ("ComissioBancaria", QLineEdit(), "Comissió Bancària"),
-            ("IdFactura", QLineEdit(), "ID Factura"),
+            #("TotalDefuncions", QLineEdit(), "Total Defuncions"),
+            #("AcumulatDefuncions", QLineEdit(), "Acumulat Defuncions"),
+            #("PreuDerrama", QLineEdit(), "Preu Derrama"),
+            #("ComissioBancaria", QLineEdit(), "Comissió Bancària"),
+            #("IdFactura", QLineEdit(), "ID Factura"),
             ("Presentador", QLineEdit(), "Presentador"),
             ("CIFPresentador", QLineEdit(), "CIF Presentador"),
             ("Ordenant", QLineEdit(), "Ordenant"),
             ("CIFOrdenant", QLineEdit(), "CIF Ordenant"),
             ("IBANPresentador", QLineEdit(), "IBAN Presentador"),
             ("BICPresentador", QLineEdit(), "BIC Presentador"),
-            ("PWD", QLineEdit(), "Contrasenya"),
+            #("PWD", QLineEdit(), "Contrasenya"),
             ("QuotaSocis", QLineEdit(), "Quota Socis"),
             ("SufixeRebuts", QLineEdit(), "Sufix Rebuts"),
             ("TexteRebutFinestreta", QLineEdit(), "Text Rebut Finestreta")
@@ -542,41 +543,36 @@ class DadesDialog(QDialog):
     
     def fill_form(self):
         """Rellena el formulario con los datos de configuración."""
-        if self.view_model:
-            data = self.view_model.get_dades_data()
-            if data:
-                ordered_keys = list(self.fields.keys())
-                for i, attr in enumerate(ordered_keys):
-                    if i < len(data):
-                        value = data[i]
-                        if value is not None:
-                            self.fields[attr].setText(str(value))
+        if not self.view_model:
+            return
+
+        data = self.view_model.get_dades_data()
+        if not data:
+            return
+
+        ordered_keys = list(Dades._fields)
+
+        for i, attr in enumerate(ordered_keys):
+            if attr not in self.fields:
+                continue
+
+            value = data[i] if i < len(data) else None
+            # Siempre asignar, aunque sea vacío
+            self.fields[attr].setText("" if value is None else str(value))
 
     def get_data(self):
         """Devuelve los datos del formulario como una tupla."""
         data = []
         ordered_keys = [
-            "TotalDefuncions", "AcumulatDefuncions", "PreuDerrama", "ComissioBancaria",
-            "IdFactura", "Presentador", "CIFPresentador", "Ordenant", "CIFOrdenant",
-            "IBANPresentador", "BICPresentador", "PWD", "QuotaSocis",
+            "Presentador", "CIFPresentador", "Ordenant", "CIFOrdenant",
+            "IBANPresentador", "BICPresentador", "QuotaSocis",
             "SufixeRebuts", "TexteRebutFinestreta"
         ]
         
         for attr in ordered_keys:
             widget = self.fields[attr]
             value = widget.text()
-            if attr in ["TotalDefuncions", "AcumulatDefuncions"]:
-                try:
-                    data.append(int(value) if value else 0)
-                except (ValueError, TypeError):
-                    data.append(0)
-            elif attr in ["PreuDerrama", "ComissioBancaria", "QuotaSocis"]:
-                try:
-                    data.append(float(value) if value else 0.0)
-                except (ValueError, TypeError):
-                    data.append(0.0)
-            else:
-                data.append(value if value else "")
+            data.append(value if value else "")
         return tuple(data)
 
 class MainWindow(QMainWindow):
@@ -789,7 +785,7 @@ class MainWindow(QMainWindow):
         
             if dialog.exec() == QDialog.DialogCode.Accepted:
                 new_data = dialog.get_data()
-                success = self.view_model.save_socio(new_data)
+                success = self.view_model.save_socio(new_data, original_fam_id=dialog.original_famid)
             
                 if success:
                     QMessageBox.information(self, "Èxit", "Soci actualitzat correctament.")

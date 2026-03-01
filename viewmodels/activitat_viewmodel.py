@@ -149,11 +149,13 @@ class ActivitatViewModel(QObject):
                 SELECT 
                     i.id, i.activitat_id, i.soci_codi, i.data_inscripcio,
                     i.es_soci, i.pagat, i.import_pagat, i.observacions, i.activa,
-                    s.Nom, s.Cognom1 + ' ' + ISNULL(s.Cognom2, '') as cognoms, s.NIF
+                    s.FAMNom as nom,
+                    '' as cognoms,
+                    s.FAMNIF as nif
                 FROM scazorla_sa.G_Activitats_Socis i
                 INNER JOIN scazorla_sa.G_Socis s ON i.soci_codi = s.FAMID
                 WHERE i.activitat_id = ? AND i.activa = 1
-                ORDER BY s.Cognom1, s.Cognom2, s.Nom
+                ORDER BY s.FAMNom
             """
             #rows = self.db_model.execute_query(query, (activitat_id,))
             

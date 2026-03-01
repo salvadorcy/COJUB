@@ -3,6 +3,8 @@ from dotenv import load_dotenv
 import pyodbc
 from collections import namedtuple
 from datetime import datetime
+from pathlib import Path
+from models.model import Dades
 
 
 # Definir la estructura de los datos del socio y de configuración
@@ -54,8 +56,9 @@ class DatabaseModel:
     Clase que gestiona la conexión a la base de datos y las operaciones CRUD.
     """
     def __init__(self):
-        load_dotenv()
-        # NOTA: Debes rellenar esta cadena de conexión con tus propios datos
+        env_path = Path(__file__).resolve().parent / ".env"
+        load_dotenv(dotenv_path=env_path)
+
         self.conn_str = (
             f"DRIVER={{ODBC Driver 17 for SQL Server}};"
             f"SERVER={os.getenv('SQL_SERVER')};"
@@ -114,15 +117,29 @@ class DatabaseModel:
             cursor.execute(query)
             return [Socio(*row) for row in cursor.fetchall()]
 
+    def famid_exists(self, famid: str) -> bool:
+        famid = (famid or "").strip()
+        if not famid:
+            return False
+
+        cursor = self.conn.cursor()
+        cursor.execute(
+            "SELECT 1 FROM scazorla_sa.G_Socis WHERE FAMID = ?",
+            famid
+        )
+        return cursor.fetchone() is not None
+
     def get_dades(self):
         """Recupera los datos de configuración de la tabla G_Dades."""
-        query = "SELECT * FROM scazorla_sa.G_Dades"
+        # Seleccionar explícitamente las columnas en el MISMO orden que Dades._fields
+        columns = ", ".join(Dades._fields)
+        query = f"SELECT {columns} FROM scazorla_sa.G_Dades WHERE RegID = 1"
+
         with self.conn.cursor() as cursor:
             cursor.execute(query)
             row = cursor.fetchone()
             if row:
-                # Se excluye el campo de identidad [RegID]
-                return Dades(*row[:-1])
+                return Dades(*row)
             return None
 
     def socio_exists(self, fam_id):
@@ -232,73 +249,68 @@ class DatabaseModel:
             print(f"Error al actualizar socio: {ex}")
             return False
         
-        def rename_socio(self, old_fam_id: str, new_data: tuple) -> bool:
-            """
-            Cambia el FAMID de un socio, replicándolo en tablas relacionadas.
+    def rename_socio(self, old_fam_id: str, new_fam_id: str) -> bool:
+        """
+        Renombra FAMID SIN duplicar filas. Actualiza referencias relacionadas.
+        Todo en transacción.
+        """
+        old_fam_id = (old_fam_id or "").strip()
+        new_fam_id = (new_fam_id or "").strip()
 
-            Estrategia segura (evita problemas con PK/FK):
-            1) Inserta el socio con el nuevo FAMID (con todos sus datos).
-            2) Actualiza referencias (G_Activitats_Socis.soci_codi y G_Socis.FAMSociReferencia).
-            3) Borra el socio antiguo.
-            Todo dentro de una transacción.
-            """
-            old_fam_id = (old_fam_id or "").strip()
-            new_fam_id = (new_data[0] or "").strip()
+        if not old_fam_id or not new_fam_id:
+            return False
 
-            if not old_fam_id or not new_fam_id:
+        # Validaciones
+        if not self.socio_exists(old_fam_id):
+            print(f"Error: no existe el socio original {old_fam_id}")
+            return False
+
+        if old_fam_id == new_fam_id:
+            return True
+
+        if self.socio_exists(new_fam_id):
+            print(f"Error: ya existe un socio con el nuevo ID {new_fam_id}")
+            return False
+
+        cursor = self.conn.cursor()
+        try:
+            cursor.execute("BEGIN TRANSACTION")
+
+            # 1) Cambiar el ID en la tabla principal
+            cursor.execute(
+                "UPDATE scazorla_sa.G_Socis SET FAMID = ? WHERE FAMID = ?",
+                new_fam_id, old_fam_id
+            )
+            if cursor.rowcount != 1:
+                # Si no actualiza exactamente 1 fila, algo está mal (duplicados o no existe)
+                cursor.execute("ROLLBACK")
+                print(f"Error: se esperaban 1 fila actualizada y fueron {cursor.rowcount}")
                 return False
 
-            # Validaciones
-            if not self.socio_exists(old_fam_id):
-                print(f"Error: no existe el socio original {old_fam_id}")
-                return False
+            # 2) Actualizar referencias en la misma tabla (parejas)
+            cursor.execute(
+                "UPDATE scazorla_sa.G_Socis SET FAMSociReferencia = ? WHERE FAMSociReferencia = ?",
+                new_fam_id, old_fam_id
+            )
 
-            if old_fam_id == new_fam_id:
-                # Nada que hacer
-                return self.update_socio(new_data)
+            # 3) Actualizar inscripciones de actividades
+            cursor.execute(
+                "UPDATE scazorla_sa.G_Activitats_Socis SET soci_codi = ? WHERE soci_codi = ?",
+                new_fam_id, old_fam_id
+            )
 
-            if self.socio_exists(new_fam_id):
-                print(f"Error: ya existe un socio con el nuevo ID {new_fam_id}")
-                return False
+            cursor.execute("COMMIT")
+            return True
 
+        except Exception as ex:
             try:
-                with self.conn.cursor() as cursor:
-                    # 1) Insertar el socio nuevo
-                    n_placeholders = len(new_data)
-                    placeholders = ', '.join(['?'] * n_placeholders)
-                    columns = ', '.join(Socio._fields)
-                    insert_sql = f"INSERT INTO scazorla_sa.G_Socis ({columns}) VALUES ({placeholders})"
-                    cursor.execute(insert_sql, new_data)
-
-                    # 2) Actualizar referencias en la misma tabla (parejas)
-                    cursor.execute(
-                        "UPDATE scazorla_sa.G_Socis SET FAMSociReferencia = ? WHERE FAMSociReferencia = ?",
-                        (new_fam_id, old_fam_id)
-                    )
-
-                    # 2b) Actualizar inscripciones de actividades
-                    cursor.execute(
-                        "UPDATE scazorla_sa.G_Activitats_Socis SET soci_codi = ? WHERE soci_codi = ?",
-                        (new_fam_id, old_fam_id)
-                    )
-
-                    # 3) Borrar el socio antiguo
-                    cursor.execute(
-                        "DELETE FROM scazorla_sa.G_Socis WHERE FAMID = ?",
-                        (old_fam_id,)
-                    )
-
-                    self.conn.commit()
-
-                return True
-
-            except pyodbc.Error as ex:
-                try:
-                    self.conn.rollback()
-                except Exception:
-                    pass
-                print(f"Error al renombrar socio: {ex}")
-                return False
+                cursor.execute("ROLLBACK")
+            except Exception:
+                pass
+            print(f"Error al renombrar socio: {ex}")
+            return False
+        finally:
+            cursor.close()
 
 
     def delete_socio(self, fam_id):
@@ -327,4 +339,41 @@ class DatabaseModel:
             return True
         except pyodbc.Error as ex:
             print(f"Error al actualizar datos de configuración: {ex}")
+            return False
+
+    def set_quota_for_all_socis(self, new_quota: float, only_active: bool = True) -> bool:
+        """
+        Replica la cuota (FAMQuota) a todos los socios.
+        only_active=True -> solo socios NO baja (bBaixa = 0)
+        """
+        try:
+            if new_quota is None:
+                return False
+
+            cursor = self.conn.cursor()
+            try:
+                cursor.execute("BEGIN TRANSACTION")
+
+                if only_active:
+                    cursor.execute(
+                        "UPDATE scazorla_sa.G_Socis SET FAMQuota = ? WHERE ISNULL(bBaixa, 0) = 0",
+                        new_quota
+                    )
+                else:
+                    cursor.execute(
+                        "UPDATE scazorla_sa.G_Socis SET FAMQuota = ?",
+                        new_quota
+                    )
+
+                cursor.execute("COMMIT")
+                return True
+
+            except Exception:
+                cursor.execute("ROLLBACK")
+                raise
+            finally:
+                cursor.close()
+
+        except pyodbc.Error as ex:
+            print(f"Error al replicar quota a socios: {ex}")
             return False

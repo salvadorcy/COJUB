@@ -12,6 +12,7 @@ from datetime import datetime
 from .style_config import STYLE_CONFIG
 import platform
 from views.activitats_view import ActivitatsView
+from models.model import Dades
 
 class SocioDialog(QDialog):
     """Diálogo para agregar o editar un socio."""

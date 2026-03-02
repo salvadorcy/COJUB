@@ -71,7 +71,15 @@ class EtiquetasGenerator:
                 continue
             
             # Crear clave única basada en dirección normalizada
-            direccion_normalizada = f"{socio.FAMAdressa.strip().lower()}|{socio.FAMCodPos.strip()}|{socio.FAMPoblacio.strip().lower()}"
+            addr = (socio.FAMAdressa or "").strip().lower()
+            cp = (socio.FAMCodPos or "").strip()
+            pob = (socio.FAMPoblacio or "").strip().lower()
+
+            direccion_normalizada = f"{addr}|{cp}|{pob}"
+
+            if not (addr or cp or pob):
+                # Si no hay dirección, no podemos deduplicar por dirección; usa un fallback
+                direccion_normalizada = (socio.FAMID or "").strip()
             
             if direccion_normalizada not in direcciones_vistas:
                 direcciones_vistas.add(direccion_normalizada)
@@ -117,7 +125,7 @@ class EtiquetasGenerator:
         
         # LÍNEA 1: Nombre (negrita)
         c.setFont("Helvetica-Bold", self.FUENTE_NOMBRE)
-        nombre = socio.FAMNom.strip()
+        nombre = (socio.FAMNom or "").strip()
         if len(nombre) > 35:  # Truncar si es muy largo
             nombre = nombre[:32] + "..."
         c.drawString(texto_x, texto_y, nombre)
@@ -125,7 +133,7 @@ class EtiquetasGenerator:
         
         # LÍNEA 2: Dirección
         c.setFont("Helvetica", self.FUENTE_DIRECCION)
-        direccion = socio.FAMAdressa.strip()
+        direccion = (socio.FAMAdressa or "").strip()
         if len(direccion) > 40:  # Truncar si es muy largo
             direccion = direccion[:37] + "..."
         c.drawString(texto_x, texto_y, direccion)
@@ -133,8 +141,8 @@ class EtiquetasGenerator:
         
         # LÍNEA 3: Código Postal - Población
         c.setFont("Helvetica", self.FUENTE_POBLACION)
-        cod_postal = socio.FAMCodPos.strip()
-        poblacion = socio.FAMPoblacio.strip()
+        cod_postal = (socio.FAMCodPos or "").strip()
+        poblacion = (socio.FAMPoblacio or "").strip()
         
         # Formatear código postal con ceros a la izquierda si es necesario
         if cod_postal.isdigit() and len(cod_postal) < 5:

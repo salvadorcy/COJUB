@@ -4,7 +4,6 @@ import pyodbc
 from collections import namedtuple
 from datetime import datetime
 from pathlib import Path
-from models.model import Dades
 
 
 # Definir la estructura de los datos del socio y de configuración
@@ -44,9 +43,8 @@ Socio = namedtuple('Socio', [
 ])
 
 Dades = namedtuple('Dades', [
-    'TotalDefuncions', 'AcumulatDefuncions', 'PreuDerrama', 'ComissioBancaria',
-    'IdFactura', 'Presentador', 'CIFPresentador', 'Ordenant', 'CIFOrdenant',
-    'IBANPresentador', 'BICPresentador', 'PWD', 'QuotaSocis',
+    'Presentador', 'CIFPresentador', 'Ordenant', 'CIFOrdenant',
+    'IBANPresentador', 'BICPresentador', 'QuotaSocis',
     'SufixeRebuts', 'TexteRebutFinestreta'
 ])
 

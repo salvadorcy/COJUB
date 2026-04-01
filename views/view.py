@@ -701,6 +701,7 @@ class MainWindow(QMainWindow):
         self.socis_table.setHorizontalHeaderLabels(["ID", "Nom", "Adreça", "Cod.Pos.", "Poblacio","Telèfon","Mòbil","Email","Soci Referencia/Parella"])
         self.socis_table.horizontalHeader().setStretchLastSection(True)
         self.socis_table.setAlternatingRowColors(True)
+        self.socis_table.setSortingEnabled(True)
         self.socis_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.socis_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.socis_table.itemSelectionChanged.connect(self.on_socio_selected)

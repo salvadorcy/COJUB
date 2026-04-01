@@ -54,9 +54,10 @@ class DatabaseModel:
     Clase que gestiona la conexión a la base de datos y las operaciones CRUD.
     """
     def __init__(self):
-        env_path = Path(__file__).resolve().parent / ".env"
+        #env_path = Path(__file__).resolve().parent / ".env"
+        #load_dotenv(dotenv_path=env_path)
+        env_path = ".env"
         load_dotenv(dotenv_path=env_path)
-
         self.conn_str = (
             f"DRIVER={{ODBC Driver 17 for SQL Server}};"
             f"SERVER={os.getenv('SQL_SERVER')};"

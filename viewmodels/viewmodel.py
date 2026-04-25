@@ -55,19 +55,32 @@ class ViewModel(QObject):
         self.model = model
         self.all_socis = []
         self.filtered_socis = []
-        self.socis_map = {}  # Diccionario para buscar socios por ID
+        self.socis_map = {}  # Diccionario para buscar nombres por ID
+        self.socis_by_id = {}
         self.dades = None
         self.selected_socio = None
         self.search_text = ""
         self.filter_finestreta_enabled = False
         self.filter_baixa_enabled = False
 
+    @staticmethod
+    def _normalize_fam_id(value):
+        """Normaliza FAMID para búsquedas y selecciones consistentes."""
+        if value is None:
+            return ""
+        return str(value).strip()
+
     def load_data(self):
         """Carga todos los datos de socios y de configuración del modelo."""
         self.all_socis = self.model.get_all_socis()
         self.dades = self.model.get_dades()
         # Crear el mapa de socios para búsquedas rápidas
-        self.socis_map = {socio.FAMID: socio.FAMNom for socio in self.all_socis}
+        self.socis_map = {
+            self._normalize_fam_id(socio.FAMID): socio.FAMNom for socio in self.all_socis
+        }
+        self.socis_by_id = {
+            self._normalize_fam_id(socio.FAMID): socio for socio in self.all_socis
+        }
         self.update_filtered_socis()
         self.dades_changed.emit()
 
@@ -84,7 +97,7 @@ class ViewModel(QObject):
         if text:
             socis = [
                 s for s in socis
-                if text in ((s.FAMID or "").lower())
+                if text in self._normalize_fam_id(s.FAMID).lower()
                 or text in ((s.FAMNom or "").lower())
             ]
 
@@ -116,13 +129,7 @@ class ViewModel(QObject):
 
     def get_socio_full_name(self, socio_id):
         """Busca y devuelve el nombre completo de un socio por su ID."""
-        if not socio_id:
-            return ""
-        try:
-            socio = next(s for s in self.all_socis if s.FAMID == socio_id.strip())
-            return socio.FAMNom
-        except StopIteration:
-            return ""
+        return self.socis_map.get(self._normalize_fam_id(socio_id), "")
 
     def set_selected_socio(self, row_index):
         """Establece el socio seleccionado a partir del índice de la fila."""
@@ -130,6 +137,10 @@ class ViewModel(QObject):
             self.selected_socio = self.filtered_socis[row_index]
         else:
             self.selected_socio = None
+
+    def set_selected_socio_by_id(self, fam_id):
+        """Establece el socio seleccionado a partir de su ID real."""
+        self.selected_socio = self.socis_by_id.get(self._normalize_fam_id(fam_id))
 
     def get_selected_socio_data(self):
         """Devuelve los datos del socio seleccionado en formato de tupla."""
@@ -141,12 +152,12 @@ class ViewModel(QObject):
         """Guarda o actualiza un socio en la base de datos."""
         print(f"DEBUG save_socio: original_fam_id={original_fam_id!r}, new_id={data[0]!r}")
         try:
-            new_id = (data[0] or "").strip()
+            new_id = self._normalize_fam_id(data[0])
             if not new_id:
                 print("Error: FAMID vacío")
                 return False
 
-            old_id = (original_fam_id or "").strip() if original_fam_id else None
+            old_id = self._normalize_fam_id(original_fam_id) if original_fam_id else None
 
             # =========================
             # EDICIÓN
@@ -213,7 +224,8 @@ class ViewModel(QObject):
         # Quota nueva (viene del dialog y está en el campo QuotaSocis)
         # En DadesDialog.get_data() QuotaSocis se convierte a float, así que aquí ya llega como float.
         try:
-            new_quota = float(data[12])  # índice 12 = "QuotaSocis"
+            quota_index = Dades._fields.index("QuotaSocis")
+            new_quota = float(data[quota_index])
         except Exception:
             new_quota = None
 

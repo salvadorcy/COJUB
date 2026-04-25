@@ -22,6 +22,20 @@ class ActivitatDetailView(QDialog):
         self.init_ui()
         self.connect_signals()
         self.viewmodel.load_inscripcions(activitat.id)
+
+    def disconnect_signals(self):
+        """Desconecta señales del viewmodel para evitar handlers duplicados."""
+        signal_pairs = [
+            (self.viewmodel.inscripcions_updated, self.update_table),
+            (self.viewmodel.inscripcions_updated, self.update_stats),
+            (self.viewmodel.error_occurred, self.show_error),
+            (self.viewmodel.success_message, self.show_success),
+        ]
+        for signal, slot in signal_pairs:
+            try:
+                signal.disconnect(slot)
+            except TypeError:
+                pass
     
     def init_ui(self):
         """Inicializa la interfaz"""
@@ -115,6 +129,7 @@ class ActivitatDetailView(QDialog):
     
     def update_table(self):
         """Actualiza la tabla con los inscritos"""
+        self.table.setUpdatesEnabled(False)
         self.table.setRowCount(0)
         inscripcions = self.viewmodel.get_inscripcions()
         
@@ -160,6 +175,7 @@ class ActivitatDetailView(QDialog):
                     item = self.table.item(row, col)
                     if item:
                         item.setBackground(QColor(144, 238, 144))  # Verde claro
+        self.table.setUpdatesEnabled(True)
     
     def update_stats(self):
         """Actualiza las estadísticas"""
@@ -229,3 +245,7 @@ class ActivitatDetailView(QDialog):
     def show_success(self, message: str):
         """Muestra un mensaje de éxito"""
         QMessageBox.information(self, "Èxit", message)
+
+    def closeEvent(self, event):
+        self.disconnect_signals()
+        super().closeEvent(event)

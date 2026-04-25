@@ -8,6 +8,32 @@ def generar_xml_sepa(dades, socios, filename="remesa_sepa.xml"):
     Genera un archivo XML en formato SEPA (pain.008.001.02)
     para el cobro de la cuota de socios.
     """
+    if not socios:
+        raise ValueError("No hay socios para generar la remesa SEPA.")
+
+    missing_config = [
+        field for field in ["Presentador", "Ordenant", "IBANPresentador", "BICPresentador"]
+        if not getattr(dades, field, None)
+    ]
+    if missing_config:
+        raise ValueError(
+            f"Faltan datos de configuración para SEPA: {', '.join(missing_config)}"
+        )
+
+    socios_invalidos = []
+    for socio in socios:
+        if socio.FAMQuota is None or socio.FAMQuota <= 0:
+            socios_invalidos.append(f"{socio.FAMID}: quota inválida")
+        if not socio.FAMIBAN:
+            socios_invalidos.append(f"{socio.FAMID}: falta IBAN")
+        if not socio.FAMBIC:
+            socios_invalidos.append(f"{socio.FAMID}: falta BIC")
+
+    if socios_invalidos:
+        raise ValueError(
+            "No se puede generar la remesa. Revisar socios: "
+            + "; ".join(socios_invalidos[:10])
+        )
     
     # 1. Crear el elemento raíz
     documento = Element("Document", xmlns="urn:iso:std:iso:20022:tech:xsd:pain.008.001.02")
@@ -22,7 +48,7 @@ def generar_xml_sepa(dades, socios, filename="remesa_sepa.xml"):
     num_transacciones = SubElement(grupo_cabecera, "NbOfTxs")
     num_transacciones.text = str(len(socios))
     
-    total_control = sum(s.FAMQuota for s in socios)
+    total_control = sum(float(s.FAMQuota or 0) for s in socios)
     total_control_el = SubElement(grupo_cabecera, "CtrlSum")
     total_control_el.text = "{:.2f}".format(total_control)
     
@@ -82,7 +108,7 @@ def generar_xml_sepa(dades, socios, filename="remesa_sepa.xml"):
         end_to_end_id.text = socio.FAMID
         
         monto_trans = SubElement(creditor_trans, "InstdAmt", Ccy="EUR")
-        monto_trans.text = "{:.2f}".format(socio.FAMQuota)
+        monto_trans.text = "{:.2f}".format(float(socio.FAMQuota))
 
         deudor_trans = SubElement(creditor_trans, "Dbtr")
         nm_deudor = SubElement(deudor_trans, "Nm")

@@ -23,6 +23,7 @@ class ActivitatViewModel(QObject):
     def load_activitats_actives(self):
         """Carga todas las actividades activas"""
         try:
+            self.db_model.ensure_connection()
             query = """
                 SELECT id, descripcio, data_inici, data_fi, 
                        preu_soci, preu_no_soci, completada, activa,
@@ -63,6 +64,7 @@ class ActivitatViewModel(QObject):
     def create_activitat(self, activitat: Activitat) -> bool:
         """Crea una nova activitat"""
         try:
+            self.db_model.ensure_connection()
             query = """
                 INSERT INTO scazorla_sa.G_Activitats 
                 (descripcio, data_inici, data_fi, preu_soci, preu_no_soci, completada, activa)
@@ -79,6 +81,10 @@ class ActivitatViewModel(QObject):
             
             with self.db_model.conn.cursor() as cursor:
                 cursor.execute(query, params)
+                if cursor.rowcount != 1:
+                    self.db_model.conn.rollback()
+                    self.error_occurred.emit("No s'ha pogut crear l'activitat")
+                    return False
                 self.db_model.conn.commit()
             self.success_message.emit("Activitat creada correctament")
             self.load_activitats_actives()
@@ -91,6 +97,7 @@ class ActivitatViewModel(QObject):
     def update_activitat(self, activitat: Activitat) -> bool:
         """Actualiza una activitat existent"""
         try:
+            self.db_model.ensure_connection()
             query = """
                 UPDATE scazorla_sa.G_Activitats
                 SET descripcio = ?, data_inici = ?, data_fi = ?, 
@@ -110,6 +117,10 @@ class ActivitatViewModel(QObject):
             
             with self.db_model.conn.cursor() as cursor:
                 cursor.execute(query, params)
+                if cursor.rowcount != 1:
+                    self.db_model.conn.rollback()
+                    self.error_occurred.emit("No s'ha pogut actualitzar l'activitat")
+                    return False
                 self.db_model.conn.commit()
             self.success_message.emit("Activitat actualitzada correctament")
             self.load_activitats_actives()
@@ -122,6 +133,7 @@ class ActivitatViewModel(QObject):
     def delete_activitat(self, activitat_id: int) -> bool:
         """Marca una activitat com inactiva (borrado suave)"""
         try:
+            self.db_model.ensure_connection()
             query = """
                 UPDATE scazorla_sa.G_Activitats
                 SET activa = 0, updated_at = GETDATE()
@@ -130,6 +142,10 @@ class ActivitatViewModel(QObject):
 
             with self.db_model.conn.cursor() as cursor:
                 cursor.execute(query, (activitat_id,))
+                if cursor.rowcount != 1:
+                    self.db_model.conn.rollback()
+                    self.error_occurred.emit("No s'ha pogut eliminar l'activitat")
+                    return False
                 self.db_model.conn.commit()
 
             self.success_message.emit("Activitat eliminada correctament")
@@ -145,6 +161,7 @@ class ActivitatViewModel(QObject):
     def load_inscripcions(self, activitat_id: int):
         """Carga totes les inscripcions d'una activitat"""
         try:
+            self.db_model.ensure_connection()
             query = """
                 SELECT 
                     i.id, i.activitat_id, i.soci_codi, i.data_inscripcio,
@@ -194,6 +211,12 @@ class ActivitatViewModel(QObject):
                               es_soci: bool, preu: float) -> bool:
         """Inscribe un soci a una activitat"""
         try:
+            self.db_model.ensure_connection()
+            soci_codi = "" if soci_codi is None else str(soci_codi).strip()
+            if not soci_codi:
+                self.error_occurred.emit("Cal indicar un soci vàlid")
+                return False
+
             # Verificar que no estigui ja inscrit
             check_query = """
                 SELECT COUNT(*) FROM scazorla_sa.G_Activitats_Socis
@@ -217,6 +240,10 @@ class ActivitatViewModel(QObject):
             
             with self.db_model.conn.cursor() as cursor:
                 cursor.execute(query, params)
+                if cursor.rowcount != 1:
+                    self.db_model.conn.rollback()
+                    self.error_occurred.emit("No s'ha pogut inscriure el soci")
+                    return False
                 self.db_model.conn.commit()
             self.success_message.emit("Soci inscrit correctament")
             self.load_inscripcions(activitat_id)
@@ -229,6 +256,7 @@ class ActivitatViewModel(QObject):
     def remove_soci_from_activitat(self, inscripcio_id: int, activitat_id: int) -> bool:
         """Da de baixa un soci d'una activitat (borrado suave)"""
         try:
+            self.db_model.ensure_connection()
             query = """
                 UPDATE scazorla_sa.G_Activitats_Socis
                 SET activa = 0
@@ -237,6 +265,10 @@ class ActivitatViewModel(QObject):
 
             with self.db_model.conn.cursor() as cursor:
                 cursor.execute(query, (inscripcio_id,))
+                if cursor.rowcount != 1:
+                    self.db_model.conn.rollback()
+                    self.error_occurred.emit("No s'ha pogut donar de baixa el soci")
+                    return False
                 self.db_model.conn.commit()
             self.success_message.emit("Soci donat de baixa de l'activitat")
             self.load_inscripcions(activitat_id)
@@ -249,6 +281,7 @@ class ActivitatViewModel(QObject):
     def marcar_pagament(self, inscripcio_id: int, pagat: bool, activitat_id: int) -> bool:
         """Marca/desmarca el pagament d'una inscripció"""
         try:
+            self.db_model.ensure_connection()
             query = """
                 UPDATE scazorla_sa.G_Activitats_Socis
                 SET pagat = ?
@@ -257,6 +290,10 @@ class ActivitatViewModel(QObject):
 
             with self.db_model.conn.cursor() as cursor:
                 cursor.execute(query, (pagat, inscripcio_id))
+                if cursor.rowcount != 1:
+                    self.db_model.conn.rollback()
+                    self.error_occurred.emit("No s'ha pogut actualitzar el pagament")
+                    return False
                 self.db_model.conn.commit()
 
             self.success_message.emit("Estat de pagament actualitzat")
@@ -270,6 +307,7 @@ class ActivitatViewModel(QObject):
     def get_estadistiques_activitat(self, activitat_id: int) -> dict:
         """Obtiene estadísticas d'una activitat"""
         try:
+            self.db_model.ensure_connection()
             query = """
                 SELECT 
                     COUNT(*) as total_inscrits,

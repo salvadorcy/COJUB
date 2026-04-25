@@ -320,7 +320,10 @@ class SocioDialog(QDialog):
         """Muestra u oculta el campo Data Baixa según el checkbox."""
         if state == Qt.CheckState.Checked.value:
             self.baixa_container.show()
+            if not self.fields["FAMDataBaixa"].text().strip():
+                self.fields["FAMDataBaixa"].setText(datetime.now().strftime('%Y-%m-%d'))
         else:
+            self.fields["FAMDataBaixa"].clear()
             self.baixa_container.hide()
     
     def calcular_nuevo_id(self):
@@ -389,6 +392,12 @@ class SocioDialog(QDialog):
         """Devuelve los datos del formulario como una tupla."""
         from datetime import datetime
         data = []
+
+        if self.fields["bBaixa"].isChecked():
+            if not self.fields["FAMDataBaixa"].text().strip():
+                self.fields["FAMDataBaixa"].setText(datetime.now().strftime('%Y-%m-%d'))
+        else:
+            self.fields["FAMDataBaixa"].clear()
         
         ordered_keys = [
             "FAMID", "FAMNom", "FAMAdressa", "FAMPoblacio", "FAMCodPos",
@@ -708,9 +717,41 @@ class MainWindow(QMainWindow):
         self.socis_table.itemDoubleClicked.connect(self.on_socio_double_clicked)
         main_layout.addWidget(self.socis_table)
 
+    def _get_fam_id_from_row(self, row):
+        """Devuelve el FAMID de una fila visible concreta."""
+        if row is None or row < 0:
+            return None
+
+        item = self.socis_table.item(row, 0)
+        if item is None:
+            return None
+
+        return item.data(Qt.ItemDataRole.UserRole) or item.text()
+
+    def _get_selected_fam_id(self):
+        """Devuelve el FAMID de la fila seleccionada tal y como se ve en la tabla."""
+        selection_model = self.socis_table.selectionModel()
+        if selection_model is not None:
+            selected_rows = selection_model.selectedRows()
+            if selected_rows:
+                return self._get_fam_id_from_row(selected_rows[0].row())
+
+        current_item = self.socis_table.currentItem()
+        if current_item is not None:
+            return self._get_fam_id_from_row(current_item.row())
+
+        return None
+
+    @staticmethod
+    def _safe_table_text(value):
+        return "" if value is None else str(value)
+
     def update_socis_table(self):
         """Actualiza la tabla de socios con los datos del ViewModel."""
         socis_to_show = self.view_model.get_socis()
+        sorting_enabled = self.socis_table.isSortingEnabled()
+        self.socis_table.setSortingEnabled(False)
+        self.socis_table.clearContents()
         self.socis_table.setRowCount(len(socis_to_show))
         
         # Esta línea actualiza el contador de registros
@@ -721,15 +762,16 @@ class MainWindow(QMainWindow):
             socio_pareja_nom = self.view_model.get_socio_full_name(socio.FAMSociReferencia)
 
             # Crear y establecer los QTableWidgetItem para cada columna
-            id_item = QTableWidgetItem(socio.FAMID)
-            nom_item = QTableWidgetItem(socio.FAMNom)
-            adressa_item = QTableWidgetItem(socio.FAMAdressa)
-            cod_pos_item = QTableWidgetItem(socio.FAMCodPos)
-            poblacio_item = QTableWidgetItem(socio.FAMPoblacio)
-            telefon_item = QTableWidgetItem(socio.FAMTelefon)
-            mobil_item = QTableWidgetItem(socio.FAMMobil)
-            email_item = QTableWidgetItem(socio.FAMEmail)
+            id_item = QTableWidgetItem(self._safe_table_text(socio.FAMID))
+            nom_item = QTableWidgetItem(self._safe_table_text(socio.FAMNom))
+            adressa_item = QTableWidgetItem(self._safe_table_text(socio.FAMAdressa))
+            cod_pos_item = QTableWidgetItem(self._safe_table_text(socio.FAMCodPos))
+            poblacio_item = QTableWidgetItem(self._safe_table_text(socio.FAMPoblacio))
+            telefon_item = QTableWidgetItem(self._safe_table_text(socio.FAMTelefon))
+            mobil_item = QTableWidgetItem(self._safe_table_text(socio.FAMMobil))
+            email_item = QTableWidgetItem(self._safe_table_text(socio.FAMEmail))
             socio_parella_item = QTableWidgetItem(socio_pareja_nom)
+            id_item.setData(Qt.ItemDataRole.UserRole, socio.FAMID)
 
             # Si el socio está dado de baja, aplicar el estilo de color
             if socio.bBaixa:
@@ -749,18 +791,19 @@ class MainWindow(QMainWindow):
             self.socis_table.setItem(row, 7, email_item)
             self.socis_table.setItem(row, 8, socio_parella_item)
 
+        self.socis_table.setSortingEnabled(sorting_enabled)
+
     def on_socio_selected(self):
         """Maneja la selección de un socio en la tabla."""
-        selected_rows = self.socis_table.selectedIndexes()
-        if selected_rows:
-            row_index = selected_rows[0].row()
-            self.view_model.set_selected_socio(row_index)
+        selected_fam_id = self._get_selected_fam_id()
+        if selected_fam_id:
+            self.view_model.set_selected_socio_by_id(selected_fam_id)
         else:
-            self.view_model.set_selected_socio(None)
+            self.view_model.set_selected_socio_by_id(None)
     
     def on_socio_double_clicked(self, item):
         """Maneja el evento de doble clic para editar un socio."""
-        self.edit_socio()
+        self.edit_socio(self._get_fam_id_from_row(item.row()) if item else None)
 
     def add_socio(self):
         """Abre el diálogo para agregar un nuevo socio."""
@@ -772,14 +815,14 @@ class MainWindow(QMainWindow):
             else:
                 QMessageBox.critical(self, "Error", "No s'ha pogut afegir el soci.")
     
-    def edit_socio(self):
+    def edit_socio(self, fam_id=None):
         """Edita el socio seleccionado."""
-        selected_row = self.socis_table.currentRow()
-        if selected_row < 0:
+        selected_fam_id = fam_id or self._get_selected_fam_id()
+        if not selected_fam_id:
             QMessageBox.warning(self, "Avís", "Si us plau, selecciona un soci.")
             return
     
-        self.view_model.set_selected_socio(selected_row)
+        self.view_model.set_selected_socio_by_id(selected_fam_id)
         socio_data = self.view_model.get_selected_socio_data()
     
         if socio_data:
@@ -797,6 +840,9 @@ class MainWindow(QMainWindow):
                 
     def delete_socio(self):
         """Elimina el socio seleccionado."""
+        selected_fam_id = self._get_selected_fam_id()
+        self.view_model.set_selected_socio_by_id(selected_fam_id)
+
         if not self.view_model.selected_socio:
             QMessageBox.warning(self, "Advertència", "Si us plau, selecciona un soci per eliminar.")
             return

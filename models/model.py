@@ -1,4 +1,5 @@
 import os
+import sys
 from dotenv import load_dotenv
 import pyodbc
 from collections import namedtuple
@@ -54,10 +55,9 @@ class DatabaseModel:
     Clase que gestiona la conexión a la base de datos y las operaciones CRUD.
     """
     def __init__(self):
-        #env_path = Path(__file__).resolve().parent / ".env"
-        #load_dotenv(dotenv_path=env_path)
-        env_path = ".env"
-        load_dotenv(dotenv_path=env_path)
+        env_path = self._resolve_env_path()
+        if env_path is not None:
+            load_dotenv(dotenv_path=env_path)
         self.conn_str = (
             f"DRIVER={{ODBC Driver 17 for SQL Server}};"
             f"SERVER={os.getenv('SQL_SERVER')};"
@@ -66,6 +66,98 @@ class DatabaseModel:
             f"PWD={os.getenv('SQL_PASSWORD')};"
         )
         self.conn = pyodbc.connect(self.conn_str)
+
+    @staticmethod
+    def _resolve_env_path():
+        """Localiza el .env tanto en desarrollo como en el ejecutable empaquetado."""
+        candidates = []
+
+        if getattr(sys, "frozen", False):
+            exe_dir = Path(sys.executable).resolve().parent
+            candidates.extend([
+                exe_dir / ".env",
+                Path(getattr(sys, "_MEIPASS", exe_dir)) / ".env",
+            ])
+
+        project_root = Path(__file__).resolve().parent.parent
+        candidates.extend([
+            project_root / ".env",
+            Path(__file__).resolve().parent / ".env",
+            Path.cwd() / ".env",
+        ])
+
+        seen = set()
+        for candidate in candidates:
+            candidate_str = str(candidate)
+            if candidate_str in seen:
+                continue
+            seen.add(candidate_str)
+            if candidate.exists():
+                return candidate
+
+        return None
+
+    def ensure_connection(self):
+        """Garantiza que la conexión siga viva antes de usarla."""
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
+            cursor.close()
+        except Exception:
+            self.connect()
+
+    @staticmethod
+    def _normalize_fam_id(value):
+        if value is None:
+            return ""
+        return str(value).strip()
+
+    def _clean_socio_data(self, data):
+        """Normaliza tipos y coherencia de datos del socio antes de persistir."""
+        data_clean = list(data)
+
+        for i, (field_name, value) in enumerate(zip(Socio._fields, data)):
+            if field_name == "FAMID":
+                normalized = self._normalize_fam_id(value)
+                data_clean[i] = normalized or None
+            elif field_name == "FAMQuota":
+                if value == "" or value is None:
+                    data_clean[i] = None
+                elif isinstance(value, str):
+                    try:
+                        data_clean[i] = float(value.replace(',', '.'))
+                    except ValueError:
+                        data_clean[i] = None
+            elif field_name in ["FAMDataAlta", "FAMDataNaixement", "FAMDataBaixa"]:
+                if value is None or value == "":
+                    data_clean[i] = None
+                elif isinstance(value, str):
+                    try:
+                        data_clean[i] = datetime.strptime(value.split()[0], '%Y-%m-%d')
+                    except ValueError:
+                        data_clean[i] = None
+            elif field_name in ["FAMbPagamentDomiciliat", "FAMbRebutCobrat", "FAMPagamentFinestreta", "bBaixa"]:
+                if isinstance(value, str):
+                    data_clean[i] = value.strip().upper() in ['TRUE', '1', 'YES']
+                elif value is None:
+                    data_clean[i] = False
+                else:
+                    data_clean[i] = bool(value)
+            elif isinstance(value, str):
+                stripped_value = value.strip()
+                data_clean[i] = stripped_value or None
+
+        baixa_index = Socio._fields.index("bBaixa")
+        data_baixa_index = Socio._fields.index("FAMDataBaixa")
+
+        if data_clean[baixa_index]:
+            if data_clean[data_baixa_index] is None:
+                data_clean[data_baixa_index] = datetime.now()
+        else:
+            data_clean[data_baixa_index] = None
+
+        return tuple(data_clean)
 
     def connect(self):
         """Establece la conexión a la base de datos."""
@@ -85,6 +177,7 @@ class DatabaseModel:
 
     def get_all_socis(self):
         """Recupera todos los socios de la base de datos."""
+        self.ensure_connection()
         query = """
             SELECT 
                 FAMID,
@@ -117,19 +210,21 @@ class DatabaseModel:
             return [Socio(*row) for row in cursor.fetchall()]
 
     def famid_exists(self, famid: str) -> bool:
-        famid = (famid or "").strip()
+        self.ensure_connection()
+        famid = self._normalize_fam_id(famid)
         if not famid:
             return False
 
-        cursor = self.conn.cursor()
-        cursor.execute(
-            "SELECT 1 FROM scazorla_sa.G_Socis WHERE FAMID = ?",
-            famid
-        )
-        return cursor.fetchone() is not None
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT 1 FROM scazorla_sa.G_Socis WHERE FAMID = ?",
+                famid
+            )
+            return cursor.fetchone() is not None
 
     def get_dades(self):
         """Recupera los datos de configuración de la tabla G_Dades."""
+        self.ensure_connection()
         # Seleccionar explícitamente las columnas en el MISMO orden que Dades._fields
         columns = ", ".join(Dades._fields)
         query = f"SELECT {columns} FROM scazorla_sa.G_Dades WHERE RegID = 1"
@@ -143,6 +238,10 @@ class DatabaseModel:
 
     def socio_exists(self, fam_id):
         """Verifica si un socio con un FAMID específico ya existe."""
+        self.ensure_connection()
+        fam_id = self._normalize_fam_id(fam_id)
+        if not fam_id:
+            return False
         query = "SELECT FAMID FROM scazorla_sa.G_Socis WHERE FAMID = ?"
         with self.conn.cursor() as cursor:
             cursor.execute(query, fam_id)
@@ -150,6 +249,12 @@ class DatabaseModel:
 
     def add_socio(self, data):
         """Añade un nuevo socio a la base de datos."""
+        self.ensure_connection()
+        data = self._clean_socio_data(data)
+        if len(data) != len(Socio._fields):
+            print(f"Error al añadir socio: se esperaban {len(Socio._fields)} campos y llegaron {len(data)}")
+            return False
+
         # data ya viene con 22 campos desde el diálogo
         n_placeholders = len(data)  # ✅ Usar directamente len(data)
         placeholders = ', '.join(['?'] * n_placeholders)
@@ -159,6 +264,10 @@ class DatabaseModel:
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(query, data)  # ✅ Pasar data directamente
+                if cursor.rowcount != 1:
+                    self.conn.rollback()
+                    print("Error al añadir socio: no se insertó exactamente una fila")
+                    return False
                 self.conn.commit()
             return True
         except pyodbc.Error as ex:
@@ -167,81 +276,26 @@ class DatabaseModel:
 
     def update_socio(self, data):
         """Actualiza un socio existente en la base de datos."""
+        self.ensure_connection()
+        data = self._clean_socio_data(data)
         fam_id = data[0]
-
-        # ============================================================================
-        # LIMPIEZA Y VALIDACIÓN DE DATOS
-        # ============================================================================
-        data_clean = list(data)
-    
-        for i, (field_name, value) in enumerate(zip(Socio._fields, data)):
-            # Campos numéricos: convertir strings vacíos a None
-            if field_name == "FAMQuota":
-                if value == "" or value is None:
-                    data_clean[i] = None
-                elif isinstance(value, str):
-                    try:
-                        data_clean[i] = float(value.replace(',', '.'))
-                    except:
-                        data_clean[i] = None
-        
-            # Campos de fecha: convertir strings a datetime
-            elif field_name in ["FAMDataAlta", "FAMDataNaixement", "FAMDataBaixa"]:
-                if value is None or value == "":
-                    data_clean[i] = None
-                elif isinstance(value, str):
-                    try:
-                        data_clean[i] = datetime.strptime(value.split()[0], '%Y-%m-%d')
-                    except:
-                        data_clean[i] = None
-        
-            # Campos booleanos: convertir strings a bool
-            elif field_name in ["FAMbPagamentDomiciliat", "FAMbRebutCobrat", "FAMPagamentFinestreta", "bBaixa"]:
-                if isinstance(value, str):
-                    data_clean[i] = value.upper() in ['TRUE', '1', 'YES']
-                elif value is None:
-                    data_clean[i] = False
-        
-            # Strings vacíos a None
-            elif isinstance(value, str) and value.strip() == "":
-                data_clean[i] = None
-    
-        data = tuple(data_clean)
-    
-        # ============================================================================
-        # DEBUG: Imprimir datos para diagnóstico
-        # ============================================================================
-        print("\n" + "="*80)
-        print("DEBUG - DATOS A ACTUALIZAR:")
-        print("="*80)
-        for i, (field_name, value) in enumerate(zip(Socio._fields, data)):
-            print(f"{i:2d}. {field_name:25s} = {value!r:40s} (tipo: {type(value).__name__})")
-        print("="*80 + "\n")
-
-        # Después de imprimir "DEBUG - DATOS LIMPIADOS:", añadir:
-        print(f"\n🔍 DEBUG ESPECÍFICO NIF:")
-        print(f"   Índice FAMNIF en Socio._fields: {Socio._fields.index('FAMNIF') if 'FAMNIF' in Socio._fields else 'NO ENCONTRADO'}")
-        print(f"   Valor FAMNIF en data: '{data[13]}' (posición 13)")
-        print(f"   Tipo: {type(data[13])}")
+        if not fam_id:
+            print("Error al actualizar socio: FAMID vacío")
+            return False
     
         # Excluir FAMID del SET ya que no se debe actualizar la clave primaria
         update_fields = [f for f in Socio._fields if f != 'FAMID']
         update_pairs = ', '.join([f"{col} = ?" for col in update_fields])
         query = f"UPDATE scazorla_sa.G_Socis SET {update_pairs} WHERE FAMID = ?"
-    
-        print(f"Query: {query}\n")
-    
         try:
             with self.conn.cursor() as cursor:
                 # Excluir el primer elemento (FAMID) de data y agregar FAMID al final para el WHERE
                 ordered_data = data[1:] + (fam_id,)
-            
-                print("Datos ordenados para query:")
-                for i, val in enumerate(ordered_data):
-                    print(f"  ?{i+1} = {val!r} (tipo: {type(val).__name__})")
-                print()
-            
                 cursor.execute(query, ordered_data)
+                if cursor.rowcount != 1:
+                    self.conn.rollback()
+                    print(f"Error al actualizar socio: se esperaban 1 fila actualizada y fueron {cursor.rowcount}")
+                    return False
                 self.conn.commit()
             return True
         except pyodbc.Error as ex:
@@ -255,6 +309,7 @@ class DatabaseModel:
         """
         old_fam_id = (old_fam_id or "").strip()
         new_fam_id = (new_fam_id or "").strip()
+        self.ensure_connection()
 
         if not old_fam_id or not new_fam_id:
             return False
@@ -314,11 +369,15 @@ class DatabaseModel:
 
     def delete_socio(self, fam_id):
         """Da de baja un socio (marca bBaixa = True y establece fecha de baja)."""
-        from datetime import datetime
+        self.ensure_connection()
         query = "UPDATE scazorla_sa.G_Socis SET bBaixa = ?, FAMDataBaixa = ? WHERE FAMID = ?"
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(query, (True, datetime.now(), fam_id))
+                if cursor.rowcount != 1:
+                    self.conn.rollback()
+                    print(f"No se pudo dar de baja el socio con ID {fam_id}")
+                    return False
                 self.conn.commit()
             return True
         except pyodbc.Error as ex:
@@ -327,6 +386,7 @@ class DatabaseModel:
 
     def update_dades(self, data):
         """Actualiza los datos de configuración en la base de datos."""
+        self.ensure_connection()
         # Se asume que solo hay una fila, por lo que se actualiza por el ID 1
         # Se excluye el campo de identidad [RegID]
         update_pairs = ', '.join([f"{col} = ?" for col in Dades._fields])
@@ -346,6 +406,7 @@ class DatabaseModel:
         only_active=True -> solo socios NO baja (bBaixa = 0)
         """
         try:
+            self.ensure_connection()
             if new_quota is None:
                 return False
 

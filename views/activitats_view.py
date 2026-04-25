@@ -16,6 +16,19 @@ class ActivitatsView(QDialog):
         self.init_ui()
         self.connect_signals()
         self.viewmodel.load_activitats_actives()
+
+    def disconnect_signals(self):
+        """Desconecta señales compartidas del viewmodel para evitar duplicados."""
+        signal_pairs = [
+            (self.viewmodel.activitats_updated, self.update_table),
+            (self.viewmodel.error_occurred, self.show_error),
+            (self.viewmodel.success_message, self.show_success),
+        ]
+        for signal, slot in signal_pairs:
+            try:
+                signal.disconnect(slot)
+            except TypeError:
+                pass
     
     def init_ui(self):
         """Inicializa la interfaz"""
@@ -165,12 +178,16 @@ class ActivitatsView(QDialog):
         if reply == QMessageBox.StandardButton.Yes:
             self.viewmodel.delete_activitat(activitat.id)
     
-    def obrir_detall_activitat(self):
+    def obrir_detall_activitat(self, item=None):
         """Abre el detalle de la actividad (doble clic)"""
         activitat = self.get_selected_activitat()
         if activitat:
             dialog = ActivitatDetailView(self.viewmodel, activitat, parent=self)
             dialog.exec()
+
+    def closeEvent(self, event):
+        self.disconnect_signals()
+        super().closeEvent(event)
     
     def show_error(self, message: str):
         """Muestra un mensaje de error"""

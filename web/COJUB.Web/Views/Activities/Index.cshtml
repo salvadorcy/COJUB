@@ -1,0 +1,7 @@
+@model IReadOnlyList<Activity>
+@{ViewData["Title"]="Activitats";}
+<header class="page-head"><div><span class="eyebrow">Programació</span><h1>Activitats</h1><p>Gestió d'activitats, inscripcions i pagaments.</p></div><div class="actions"><a class="btn primary" asp-action="Create">＋ Nova activitat</a></div></header>
+<div class="table-wrap"><table><thead><tr><th>Descripció</th><th>Inici</th><th>Fi</th><th>Preu soci</th><th>Preu no soci</th><th>Estat</th><th></th></tr></thead><tbody>
+@foreach(var a in Model){<tr><td><a asp-action="Details" asp-route-id="@a.Id"><strong>@a.Description</strong></a></td><td>@a.StartDate.ToString("dd/MM/yyyy")</td><td>@a.EndDate?.ToString("dd/MM/yyyy")</td><td>@a.MemberPrice.ToString("0.00 €")</td><td>@a.NonMemberPrice.ToString("0.00 €")</td><td><span class="status @(a.Completed?"inactive":"")">@(a.Completed?"Completada":"Activa")</span></td><td><div class="row-actions"><a class="btn small" asp-action="Edit" asp-route-id="@a.Id">Editar</a><form method="post" asp-action="Deactivate" asp-route-id="@a.Id"><button class="btn small danger" data-confirm="Vols eliminar aquesta activitat?" type="submit">Eliminar</button></form></div></td></tr>}
+</tbody></table>@if(Model.Count==0){<div class="empty">No hi ha activitats actives.</div>}</div>
+

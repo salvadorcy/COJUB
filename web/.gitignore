@@ -1,0 +1,8 @@
+**/bin/
+**/obj/
+**/.verify/
+**/App_Data/
+**/publish/
+**/appsettings.Production.json
+*.user
+*.suo

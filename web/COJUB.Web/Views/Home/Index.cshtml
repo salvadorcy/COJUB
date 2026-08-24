@@ -1,0 +1,21 @@
+@model IEnumerable<Activity>
+@{ViewData["Title"]="Resum";var settings=(AppSettings)ViewBag.Settings;}
+<header class="page-head"><div><span class="eyebrow">Tauler de control</span><h1>Bon dia, @User.Identity?.Name</h1><p>Una mirada ràpida a l'activitat de COJUB.</p></div><div class="actions"><a class="btn primary" asp-controller="Members" asp-action="Create">＋ Nou soci</a><a class="btn" asp-controller="Activities" asp-action="Create">＋ Nova activitat</a></div></header>
+<section class="stats">
+ <article class="card stat"><small>Socis actius</small><strong>@ViewBag.MemberCount</strong></article>
+ <article class="card stat"><small>Domiciliacions</small><strong>@ViewBag.DirectDebitCount</strong></article>
+ <article class="card stat"><small>Pagament finestreta</small><strong>@ViewBag.CounterCount</strong></article>
+ <article class="card stat"><small>Activitats</small><strong>@ViewBag.ActivityCount</strong></article>
+</section>
+<section class="grid-2">
+ <article class="card section-card"><div class="section-title"><h2>Activitats recents</h2><a asp-controller="Activities" asp-action="Index">Veure totes →</a></div>
+ @if(!Model.Any()){<div class="empty">Encara no hi ha activitats actives.</div>}else{<div class="table-wrap"><table><thead><tr><th>Activitat</th><th>Data</th><th>Estat</th></tr></thead><tbody>@foreach(var a in Model){<tr><td><a asp-controller="Activities" asp-action="Details" asp-route-id="@a.Id"><strong>@a.Description</strong></a></td><td>@a.StartDate.ToString("dd/MM/yyyy")</td><td><span class="status @(a.Completed?"inactive":"")">@(a.Completed?"Completada":"Activa")</span></td></tr>}</tbody></table></div>}
+ </article>
+ <article class="card section-card"><div class="section-title"><h2>Documents</h2></div><div class="quick-grid">
+  <a class="quick" asp-controller="Reports" asp-action="Members"><strong>Llistat general</strong><small>PDF de socis actius</small></a>
+  <a class="quick" asp-controller="Reports" asp-action="Banking"><strong>Dades bancàries</strong><small>IBAN, BIC i quota</small></a>
+  <a class="quick" asp-controller="Reports" asp-action="Labels"><strong>Etiquetes</strong><small>Format 3 × 8</small></a>
+  <form class="quick" asp-controller="Reports" asp-action="Sepa" method="post"><button type="submit" style="all:unset;cursor:pointer"><strong>Remesa SEPA</strong><small>@ViewBag.DirectDebitCount rebuts · @(settings.MemberFee?.ToString("0.00")??"—") €</small></button></form>
+ </div></article>
+</section>
+

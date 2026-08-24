@@ -1,0 +1,6 @@
+@model LoginInput
+@{ViewData["Title"]="Inici de sessió";}
+<section class="card auth-card"><div class="brand-mark">C</div><span class="eyebrow">Accés segur</span><h1>Benvingut a COJUB</h1><p>Identifica't amb el teu correu i contrasenya. Després t'enviarem un codi d'un sol ús.</p>
+ <form method="post"><div asp-validation-summary="ModelOnly"></div><div class="field"><label asp-for="Email">Correu electrònic</label><input class="control" asp-for="Email" autocomplete="username" autofocus /><span asp-validation-for="Email"></span></div><div class="field"><label asp-for="Password">Contrasenya</label><input class="control" asp-for="Password" autocomplete="current-password" /><span asp-validation-for="Password"></span></div><label class="check"><input asp-for="RememberMe" /> Recorda'm en aquest dispositiu</label><button class="btn primary" type="submit">Continuar</button></form>
+</section>
+

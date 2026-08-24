@@ -1,0 +1,6 @@
+@model OtpInput
+@{ViewData["Title"]="Verificació";}
+<section class="card auth-card"><div class="brand-mark">C</div><span class="eyebrow">Segon factor</span><h1>Revisa el correu</h1><p>Hem enviat un codi de sis xifres. Només es pot utilitzar una vegada i caduca en pocs minuts.</p>
+ <form method="post"><input asp-for="ChallengeId" type="hidden"/><div asp-validation-summary="ModelOnly"></div><div class="field"><label asp-for="Code">Codi d'accés</label><input class="control otp-input" asp-for="Code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" autofocus /><span asp-validation-for="Code"></span></div><button class="btn primary" type="submit">Entrar</button></form><p><a asp-action="Login">← Tornar a l'inici</a></p>
+</section>
+

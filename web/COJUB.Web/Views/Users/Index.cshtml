@@ -1,0 +1,6 @@
+@model IReadOnlyList<WebUser>
+@{ ViewData["Title"] = "Usuaris"; }
+<header class="page-head"><div><span class="eyebrow">Seguretat</span><h1>Gestió d'usuaris</h1><p>Controla qui pot accedir a COJUB.</p></div><div class="actions"><a class="btn primary" asp-action="Create">Nou usuari</a></div></header>
+<div class="table-wrap"><table><thead><tr><th>Nom</th><th>Correu</th><th>Rol</th><th>Estat</th><th>Nova contrasenya</th><th></th></tr></thead><tbody>
+@foreach(var user in Model){<tr><td><strong>@user.DisplayName</strong></td><td>@user.Email</td><td>@(user.Role == "Administrator" ? "Administrador" : "Usuari")</td><td><span class="status @(user.IsActive ? "" : "inactive")">@(user.IsActive ? "Actiu" : "Inactiu")</span></td><td><form class="row-actions" asp-action="SetPassword" asp-route-id="@user.Id" method="post"><input class="control compact" type="password" name="password" minlength="12" required autocomplete="new-password" placeholder="Mínim 12 caràcters"/><button class="btn small" type="submit">Canviar</button></form></td><td>@if(user.Role != "Administrator"){<form asp-action="SetActive" asp-route-id="@user.Id" method="post"><input type="hidden" name="active" value="@(!user.IsActive)"/><button class="btn small @(user.IsActive ? "danger" : "")" type="submit">@(user.IsActive ? "Desactivar" : "Activar")</button></form>}</td></tr>}
+</tbody></table></div>

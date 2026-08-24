@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#18352f" />
+    <title>@ViewData["Title"] · COJUB</title>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body class="@(User.Identity?.IsAuthenticated == true ? "app-shell" : "auth-shell")">
+@if (User.Identity?.IsAuthenticated == true)
+{
+    <aside class="sidebar" id="sidebar">
+        <a class="brand" asp-controller="Home" asp-action="Index"><span class="brand-mark">C</span><span><strong>COJUB</strong><small>Gestió social</small></span></a>
+        <nav class="main-nav" aria-label="Navegació principal">
+            <a asp-controller="Home" asp-action="Index"><span>⌂</span> Resum</a>
+            <a asp-controller="Members" asp-action="Index"><span>◎</span> Socis</a>
+            <a asp-controller="Activities" asp-action="Index"><span>◇</span> Activitats</a>
+            <a asp-controller="Settings" asp-action="Index"><span>⚙</span> Configuració</a>
+            @if (User.IsInRole("Administrator"))
+            {
+                <a asp-controller="Users" asp-action="Index"><span>♙</span> Usuaris</a>
+            }
+        </nav>
+        <div class="sidebar-foot">
+            <div class="user-card"><span class="avatar">@((User.Identity.Name ?? "U")[0])</span><span><strong>@User.Identity.Name</strong><small>@User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value</small></span></div>
+            <form asp-controller="Account" asp-action="Logout" method="post"><button class="nav-logout" type="submit">Tancar sessió</button></form>
+        </div>
+    </aside>
+    <header class="mobile-head"><button type="button" data-menu aria-label="Obrir menú">☰</button><span>COJUB</span></header>
+}
+<main class="page-wrap">
+    @if (TempData["Success"] is string success){<div class="toast success">@success</div>}
+    @if (TempData["Error"] is string error){<div class="toast error">@error</div>}
+    @RenderBody()
+</main>
+<script src="~/js/site.js" asp-append-version="true"></script>
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
